@@ -6,17 +6,25 @@
 #include <fcntl.h>
 #include <time.h>
 #include <pthread.h>
-#include <getopt.h> 
+#include <getopt.h>
 
 #include <sys/socket.h> 
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <sys/stat.h>
 
-#include "macros.h" /*macro per la gestione degli errori sui valori di ritorno*/
+#include "header/macros.h" /*macro per la gestione degli errori sui valori di ritorno*/
+#include "header/trie.h"
+
+// costanti
 
 #define MAX_CLIENT 32
+
+// strutture dati
+
+Trie *radice = NULL;
 
 // funzione per la gestione del server
 void server(char* nome_server, int porta_server) {
@@ -43,7 +51,7 @@ void server(char* nome_server, int porta_server) {
     SYSC(ret, bind(fd_server, (struct sockaddr *)&server_addr, sizeof(server_addr)), "Errore nella bind");
 
     // listen
-    SYSC(ret, listen(fd_server, MAX_CLIENT), "nella listen");
+    SYSC(ret, listen(fd_server, MAX_CLIENT), "Errore nella listen");
 
 }
 
@@ -54,7 +62,7 @@ int main(int argc, char *ARGV[]) {
     char *nome_server;
     int porta_server;
 
-    /*struct per file ????*/
+    /*struct per file*/
     struct stat info;
 
     /*controllo dei parametri passati da linea di comando*/
@@ -69,10 +77,7 @@ int main(int argc, char *ARGV[]) {
     nome_server = ARGV[1];
     porta_server = atoi(ARGV[2]);
 
-    /*controllo dei parametri opzionali: matrici, durata, seed, diz*/
-
-    int opz;
-    int op_indx = 0;
+    int ret, opz, op_indx = 0;
 
     char *data_filename = NULL;
     int durata_in_minuti;
