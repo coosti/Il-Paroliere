@@ -19,15 +19,19 @@
 
 #define MAX_CARATTERI_MESSAGGIO 128
 
+#define MAX_CARATTERI_USERNAME 11
+
+#define MAX_MESSAGGI 8
+
 // array di stringhe
 
 typedef struct Messaggio {
     char *nome_utente;
-    char messaggio[128];
+    char *messaggio;
 } Messaggio;
 
 // inizializzazione bacheca
-void inizializzazione_bacheca();
+Messaggio* inizializzazione_bacheca();
 
 // inserimento di un messaggio in bacheca
 void inserimento_bacheca(Messaggio bacheca [], char *username, char *msg, int *num_msg);

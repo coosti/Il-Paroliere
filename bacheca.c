@@ -18,18 +18,28 @@
 #include "header/trie.h"
 #include "header/bacheca.h"
 
-// inizializzazione bacheca
-Messaggio bacheca[MAX_MESSAGGI];
-
 // funzioni bacheca
 
-void inizializzazione_bacheca() {
+Messaggio* inizializzazione_bacheca() {
     // allocazione array di struct
     Messaggio* bacheca = malloc(MAX_MESSAGGI * sizeof(Messaggio));
+    if (bacheca == NULL) {
+        perror("Errore allocazione bacheca");
+        exit(EXIT_FAILURE);
+    }
 
     for(int i = 0; i < MAX_MESSAGGI; i++) {
         bacheca[i].nome_utente = malloc(MAX_CARATTERI_USERNAME);
+        if (bacheca[i].nome_utente == NULL) {
+            perror("Errore allocazione nome_utente");
+            exit(EXIT_FAILURE);
+        }
+
         bacheca[i].messaggio = malloc(MAX_CARATTERI_MESSAGGIO);
+        if (bacheca[i].messaggio == NULL) {
+            perror("Errore allocazione messaggio");
+            exit(EXIT_FAILURE);
+        }
     }
 
     return bacheca;
@@ -67,10 +77,10 @@ void inserimento_bacheca(Messaggio bacheca[], char *username, char *msg, int *nu
 }
 
 // stampa csv - comma separated values
-void stampa_bacheca(Messaggio bacheca[], int *num_messaggi) {
+void stampa_bacheca(Messaggio bacheca[], int *num_msg) {
 
     // scrivo in un file o printf ????
-    for (int i = 0; i < *num_messaggi; i++) {
+    for (int i = 0; i < *num_msg; i++) {
         printf("%s,%s\n", bacheca[i].nome_utente, bacheca[i].messaggio);
     }
     
