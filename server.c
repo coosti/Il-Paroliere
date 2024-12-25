@@ -17,18 +17,45 @@
 
 #include "header/macros.h" /*macro per la gestione degli errori sui valori di ritorno*/
 #include "header/trie.h"
+#include "header/bacheca.h"
 
 // costanti
 
 #define MAX_CLIENT 32
 
+#define MAX_CARATTERI_USERNAME 11
+
+#define MAX_MESSAGGI 8
+
 // strutture dati
 
 Trie *radice = NULL;
 
+// funzioni
+
+void caricamento_dizionario(char *file_dizionario, Trie *radice) {
+
+    FILE *fp = fopen(file_dizionario, "r");
+
+    if (fp == NULL) {
+        perror("Errore nell'apertura del file dizionario");
+        exit(EXIT_FAILURE);
+    }
+    else {
+        char tmp_buffer[256];
+
+        while (fscanf(fp, "%s", tmp_buffer) != EOF) {
+            inserimento_trie(radice, tmp_buffer);
+        }
+    }
+
+    fclose(fp);
+}
+
+
 // funzione per la gestione del server
 void server(char* nome_server, int porta_server) {
-    /*descrittori dei socket*/
+    //descrittori dei socket
     int fd_server, fd_client;
 
     int ret;
@@ -52,6 +79,12 @@ void server(char* nome_server, int porta_server) {
 
     // listen
     SYSC(ret, listen(fd_server, MAX_CLIENT), "Errore nella listen");
+
+    // creazione gioco
+
+
+    // ciclo di accettazione delle connessioni
+
 
 }
 
@@ -84,6 +117,8 @@ int main(int argc, char *ARGV[]) {
     int rnd_seed;
     char *dizionario = NULL;
 
+    int seed_dato = 0;
+
     static struct option long_options[] = {
         {"matrici", required_argument, 0, 'm'},
         {"durata", required_argument, 0, 'd'},
@@ -92,7 +127,7 @@ int main(int argc, char *ARGV[]) {
         {0, 0, 0, 0}
     };
 
-    while ((opz = getopt_long(argc, ARGV, "m:d:s:z", long_options, &op_indx)) != -1) {
+    while ((opz = getopt_long(argc, ARGV, "", long_options, &op_indx)) != -1) {
         switch(opz) {
             case 'm':
                 data_filename = optarg;
@@ -102,6 +137,7 @@ int main(int argc, char *ARGV[]) {
             break;
             case 's':
                 rnd_seed = atoi(optarg);
+                seed_dato = 1;
             break;  
             case 'z':
                 dizionario = optarg;
@@ -112,10 +148,8 @@ int main(int argc, char *ARGV[]) {
         }
     }
 
-    // ???????????????????????
-
      /* controllare se sia matrici e seed sono stati forniti e dare errore */
-    if (data_filename != NULL && rnd_seed != 0) {
+    if (data_filename != NULL && seed_dato == 1) {
         fprintf(stderr, "Errore: Non è possibile fornire sia il parametro --matrici che il parametro --seed.\n");
         exit(EXIT_FAILURE);
     }
@@ -141,15 +175,6 @@ int main(int argc, char *ARGV[]) {
         }
     }
 
-    /*controllo del seed*/
-    if (rnd_seed != 0) {
-        /*se è stato fornito, controllare che sia un intero maggiore di 0*/
-        if (rnd_seed <= 0) {
-            perror("Attenzione, seed non valido!\n");
-            exit(EXIT_FAILURE);
-        }
-    }
-
     /*controllo del file dizionario*/
     if (dizionario != NULL) {
         /*se è stato fornito, controllare che sia un file regolare*/
@@ -160,7 +185,13 @@ int main(int argc, char *ARGV[]) {
         }
     }
 
+    radice = nuovo_nodo();
 
+    caricamento_dizionario(dizionario, radice);
+
+    server(nome_server, porta_server);
+
+    
 }
 
 

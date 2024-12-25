@@ -21,8 +21,8 @@ typedef struct Trie {
     int fine_parola;
 } Trie;
 
-Trie* nuovo_nodo_trie();
+Trie* nuovo_nodo();
 
-void inserimento_trie(Trie **radice, char *parola);
+void inserimento_trie(Trie *radice, char *parola);
 
 int ricerca_trie(Trie *radice, char *parola);

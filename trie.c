@@ -36,12 +36,9 @@ Trie* nuovo_nodo() {
 }
 
 // inserimento di una parola
-void inserimento_trie(Trie **radice, char *parola) {
-    if (*radice == NULL) {
-        *radice = nuovo_nodo();
-    }
+void inserimento_trie(Trie *radice, char *parola) {
 
-    Trie *tmp = *radice;
+    Trie *tmp = radice;
 
     for (int i = 0; i < strlen(parola); i++) {
         int indice = parola[i] - 'a';

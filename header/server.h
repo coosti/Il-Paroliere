@@ -14,4 +14,14 @@
 #include <arpa/inet.h>
 #include <sys/stat.h>
 
- 
+#include "header/macros.h"
+#include "header/trie.h"
+#include "header/bacheca.h"
+
+// costanti
+#define MAX_CLIENT 32
+#define MAX_LUNGHEZZA_USERNAME 11
+#define MAX_MESSAGGI 8
+
+
+void caricamento_dizionario(char *file_dizionario, Trie **radice);
