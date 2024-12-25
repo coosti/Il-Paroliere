@@ -24,7 +24,6 @@
 #define MAX_MESSAGGI 8
 
 // array di stringhe
-
 typedef struct Messaggio {
     char *nome_utente;
     char *messaggio;

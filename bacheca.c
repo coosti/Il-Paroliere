@@ -78,7 +78,6 @@ void inserimento_bacheca(Messaggio bacheca[], char *username, char *msg, int *nu
 
 // stampa csv - comma separated values
 void stampa_bacheca(Messaggio bacheca[], int *num_msg) {
-
     // scrivo in un file o printf ????
     for (int i = 0; i < *num_msg; i++) {
         printf("%s,%s\n", bacheca[i].nome_utente, bacheca[i].messaggio);
