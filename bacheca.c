@@ -18,9 +18,9 @@
 #include "header/trie.h"
 #include "header/bacheca.h"
 
-// funzioni bacheca
+// file contenente le funzioni per la gestione della bacheca
 
-Messaggio* inizializzazione_bacheca() {
+Messaggio* allocazione_bacheca() {
     // allocazione array di struct
     Messaggio* bacheca = malloc(MAX_MESSAGGI * sizeof(Messaggio));
     if (bacheca == NULL) {
@@ -45,6 +45,7 @@ Messaggio* inizializzazione_bacheca() {
     return bacheca;
 }
 
+// post del messaggio nella bacheca dopo MSG_POST_BACHECA
 void inserimento_bacheca(Messaggio bacheca[], char *username, char *msg, int *num_msg) {
     if (*num_msg < MAX_MESSAGGI) {
         // bacheca ancora libera
@@ -76,15 +77,24 @@ void inserimento_bacheca(Messaggio bacheca[], char *username, char *msg, int *nu
     }
 }
 
-// stampa csv - comma separated values
+// stampa della bacheca in csv dopo MSG_SHOW_BACHECA
 void stampa_bacheca(Messaggio bacheca[], int *num_msg) {
-    // scrivo in un file o printf ????
+
     for (int i = 0; i < *num_msg; i++) {
-        printf("%s,%s\n", bacheca[i].nome_utente, bacheca[i].messaggio);
+        printf("%s, %s\n", bacheca[i].nome_utente, bacheca[i].messaggio);
     }
     
 }
 
+// liberare memoria bacheca
+void deallocazione_bacheca(Messaggio bacheca[], int *num_msg) {
+    for (int i =0; i<*num_msg; i++) {
+        free(bacheca[i].nome_utente);
+        free(bacheca[i].messaggio);
+    }
+
+    free(bacheca);
+}
 
 
 

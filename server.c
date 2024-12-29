@@ -18,8 +18,11 @@
 #include "header/macros.h" /*macro per la gestione degli errori sui valori di ritorno*/
 #include "header/trie.h"
 #include "header/bacheca.h"
+#include "header/matrice.h"
 
 // costanti
+
+#define N 256
 
 #define MAX_CLIENT 32
 
@@ -27,9 +30,26 @@
 
 #define MAX_MESSAGGI 8
 
-// strutture dati
+
+// variabili globali
+
+char *data_filename = NULL;
+
+int durata_gioco = 3;
+
+int rnd_seed;
+
+char *dizionario = NULL;
+
+int durata_pausa = 1;
+
+// strutture dati globali
 
 Trie *radice = NULL;
+
+Messaggio *bacheca;
+
+char **matrice;
 
 // funzioni
 
@@ -112,11 +132,6 @@ int main(int argc, char *ARGV[]) {
 
     int ret, opz, op_indx = 0;
 
-    char *data_filename = NULL;
-    int durata_in_minuti;
-    int rnd_seed;
-    char *dizionario = NULL;
-
     int seed_dato = 0;
 
     static struct option long_options[] = {
@@ -133,7 +148,7 @@ int main(int argc, char *ARGV[]) {
                 data_filename = optarg;
             break;
             case 'd':
-                durata_in_minuti = atoi(optarg);
+                durata_gioco = atoi(optarg);
             break;
             case 's':
                 rnd_seed = atoi(optarg);
@@ -143,7 +158,7 @@ int main(int argc, char *ARGV[]) {
                 dizionario = optarg;
             break;
             default:
-                printf(stderr, "Errore! Parametri: %s nome_server porta_server [--matrici data_filename] [--durata durata_in_minuti] [--seed rnd_seed] [--diz dizionario] \n", ARGV[0]);
+                printf(stderr, "Errore! Parametri: %s nome_server porta_server [--matrici data_filename] [--durata durata_gioco] [--seed rnd_seed] [--diz dizionario] \n", ARGV[0]);
                 exit(EXIT_FAILURE);
         }
     }
@@ -167,9 +182,9 @@ int main(int argc, char *ARGV[]) {
     }
 
     /*controllo della durata in minuti*/
-    if (durata_in_minuti != 0) {
+    if (durata_gioco != 0) {
         /*se è stato fornito, controllare che sia un intero maggiore di 0*/
-        if (durata_in_minuti <= 0) {
+        if (durata_gioco <= 0) {
             perror("Attenzione, durata non valida!\n");
             exit(EXIT_FAILURE);
         }
@@ -190,6 +205,8 @@ int main(int argc, char *ARGV[]) {
     caricamento_dizionario(dizionario, radice);
 
     server(nome_server, porta_server);
+
+    srand(rnd_seed);
 
     
 }

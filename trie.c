@@ -69,3 +69,18 @@ int ricerca_trie(Trie *radice, char *parola) {
     else
         return 0;
 }
+
+// deallocazione del trie
+void deallocazione_trie(Trie *radice) {
+    if (radice == NULL) {
+        return;
+    }
+
+    for (int i = 0; i < MAX_CARATTERI; i++) {
+        if (radice -> figli[i]) {
+            deallocazione_trie(radice -> figli[i]);
+        }
+    }
+
+    free(radice);
+}

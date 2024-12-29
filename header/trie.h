@@ -26,3 +26,5 @@ Trie* nuovo_nodo();
 void inserimento_trie(Trie *radice, char *parola);
 
 int ricerca_trie(Trie *radice, char *parola);
+
+void deallocazione_trie(Trie *radice);
