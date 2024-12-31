@@ -17,8 +17,6 @@
 
 #include "header/server.h"
 #include "header/macros.h"
-#include "header/trie.h"
-#include "header/bacheca.h"
 #include "header/matrice.h"
 
 // variabile globale per memorizzare il valore della posizione corrente nel file
@@ -110,7 +108,10 @@ void matrice_casuale(char **matrice){
 void stampa_matrice(char **matrice) {
     for(int i = 0; i < MAX_CASELLE; i++) {
         for (int j = 0; j < MAX_CASELLE; j++) {
-            printf(" %c ", matrice[i][j]);
+            if (matrice[i][j] == 'q')
+                printf(" %s ", "Qu");
+            else
+                printf(" %c ", toupper(matrice[i][j]));
         }
         printf("\n");
     }

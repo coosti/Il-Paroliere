@@ -5,7 +5,7 @@
 #include <errno.h>
 #include <fcntl.h>
 
-// macro per il controllo delle system call sui processi che ritornano 
+// macro per il controllo delle system call sui processi che ritornano -1
 #define SYSC(v, c, m) \
     if ((v = c) == -1) { \
         perror(m); \

@@ -14,22 +14,18 @@
 #include <arpa/inet.h>
 #include <sys/stat.h>
 
-#include "header/macros.h"
-#include "header/trie.h"
 #include "header/shared.h"
-#include "header/bacheca.h"
-#include "header/matrice.h"
 
-// costanti
-#define N 256
+#define NUM_THREAD 2
 
-#define MAX_CLIENT 32
+#define MAX_LUNGHEZZA_STDIN 256
 
-#define MAX_LUNGHEZZA_USERNAME 11
+// struct per raggruppare i parametri utili dei thread
+typedef struct {
+    pthread_t t_id; // tid
+    int *sck;   // puntatore al file descriptor del socket
+} thread_arg;
 
-#define MAX_MESSAGGI 8
+void *invio_client (void *args);
 
-
-void caricamento_dizionario(char *file_dizionario, Trie *radice);
-
-void *scorer (void *arg);
+void *ricezione_client (void *args);

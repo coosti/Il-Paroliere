@@ -15,21 +15,8 @@
 #include <arpa/inet.h>
 #include <sys/stat.h>
 
-#include "header/macros.h" /*macro per la gestione degli errori sui valori di ritorno*/
-#include "header/trie.h"
-#include "header/bacheca.h"
-#include "header/matrice.h"
-
-// costanti
-
-#define N 256
-
-#define MAX_CLIENT 32
-
-#define MAX_CARATTERI_USERNAME 11
-
-#define MAX_MESSAGGI 8
-
+#include "header/server.h"
+#include "header/macros.h"
 
 // variabili globali
 

@@ -14,6 +14,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
+#include "header/server.h"
 #include "header/macros.h"
 #include "header/trie.h"
 #include "header/bacheca.h"
