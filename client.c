@@ -7,6 +7,7 @@
 #include <time.h>
 #include <pthread.h>
 #include <getopt.h> 
+#include <ctype.h>
 
 #include <sys/socket.h> 
 #include <sys/types.h>
@@ -35,15 +36,16 @@ void *invio_client (void *args) {
     int fd_c = *(param->sck);
 
     while (1) {
-        // lettura da standard input
-        char msg_stdin[MAX_LUNGHEZZA_STDIN];
+        // lettura da standard input 
+        char buffer[MAX_LUNGHEZZA_STDIN];
         ssize_t n_read;
 
-        SYSC(n_read, read(STDIN_FILENO, msg_stdin, MAX_LUNGHEZZA_STDIN), "Errore nella lettura da STDIN");
+        SYSC(n_read, read(STDIN_FILENO, buffer, MAX_LUNGHEZZA_STDIN), "Errore nella lettura da STDIN");
 
+        // variabile per il comando richiesto, grande quanto i byte effettivamente letti 
+        char *msg_stdin = (char*)malloc(n_read + 1);
+        strncpy(msg_stdin, buffer, n_read);
         msg_stdin[n_read] = '\0';
-
-        // in msg_stdin c'è il comando richiesto dall'utente
 
         // tokenizzare il contenuto di msg_stdin per prendere il comando ed eventuali parametri previsti
         char *comando = strtok(msg_stdin, " ");
@@ -57,43 +59,110 @@ void *invio_client (void *args) {
         richiesta.data = NULL;
 
         // if con tutti i casi
-        if (strcmp(comando, "aiuto") && argomento == NULL) {
-            // stampa dei comandi
+        if (strcmp(comando, "aiuto") == 0 && argomento == NULL) {
+            stampa_comandi();
         }
-        else if (strcmp(comando, "registra_utente")) {
-            // controlli su argomento
-            // validità del nome utente
+        else if (strcmp(comando, "registra_utente") == 0) {
+            // prima di inviare il messaggio, controllare la validità del nome utente
+            // lunghezza compresa tra 3 e 10, controllo sui caratteri alfanumerici e tutto minuscolo
+            if (argomento == NULL) {
+                comando_non_valido();
+            }
+            else if (!(controllo_lunghezza_min(argomento, MIN_LUNGHEZZA_USERNAME))) {
+                printf("nome utente troppo corto! \n"
+                        "deve avere almeno %d caratteri \n"
+                        "%s \n", MIN_LUNGHEZZA_USERNAME, PAROLIERE);
+            }
+            else if (!(controllo_lunghezza_max(argomento, MAX_LUNGHEZZA_USERNAME))) {
+                printf("nome utente troppo lungo! \n"
+                        "deve avere massimo %d caratteri \n"
+                        "%s \n", MAX_LUNGHEZZA_USERNAME, PAROLIERE);
+            }
+            else if (!(username_valido(argomento))) {
+                printf("nome utente non valido! \n"
+                        "deve essere tutto minuscolo e contenere solo caratteri alfanumerici \n"
+                        "%s \n", PAROLIERE);
+            }
+            else {
+                // se il nome utente è valido invio il messaggio
+                richiesta.type = MSG_REGISTRA_UTENTE;
+                richiesta.length = strlen(argomento);
+
+                richiesta.data = (char*)malloc(richiesta.length + 1);
+                strncpy(richiesta.data, argomento, richiesta.length);
+                richiesta.data[richiesta.length] = '\0';
+
+                invio_msg(fd_c, &richiesta);
+            }
         }
-        else if (strcmp(comando, "matrice") && argomento == NULL) {
+        else if (strcmp(comando, "matrice") == 0 && argomento == NULL) {
             richiesta.type = MSG_MATRICE;
             invio_msg(fd_c, &richiesta);
         }
-        else if (strcmp(comando, "msg")) {
-            // controlli sul testo del messaggio
+        else if (strcmp(comando, "msg") == 0) {
+            // prima di inviare il messaggio, controllarne la lunghezza
+            if (argomento == NULL) {
+                comando_non_valido();
+            }
+            else if (strlen(argomento) == 0) {
+                printf("messaggio vuoto! \n"
+                        "%s \n", PAROLIERE);
+            }
+            else if (!(controllo_lunghezza_max(argomento, MAX_CARATTERI_MESSAGGIO))) {
+                printf("messaggio troppo lungo! \n"
+                        "massimo %d caratteri \n"
+                        "%s \n", MAX_CARATTERI_MESSAGGIO, PAROLIERE);
+            }
+            else {
+                // se il messaggio è valido lo invio
+                richiesta.type = MSG_POST_BACHECA;
+                richiesta.length = strlen(argomento);
+                richiesta.data = (char*)malloc(richiesta.length + 1);
+
+                strncpy(richiesta.data, argomento, richiesta.length);
+                richiesta.data[richiesta.length] = '\0';
+
+                invio_msg(fd_c, &richiesta);
+            }
         }
-        else if (strcmp(comando, "show_msg") && argomento == NULL) {
+        else if (strcmp(comando, "show_msg") == 0 && argomento == NULL) {
             richiesta.type = MSG_SHOW_BACHECA;
             invio_msg(fd_c, &richiesta);
         }
-        else if (strcmp(comando, "p")) {
-            // controlli sulla parola
+        else if (strcmp(comando, "p") == 0) {
+            // controllare la lunghezza minima della parola
+            // controlli su esistenza nella matrice e nel dizionario li fa il SERVER
+            if (argomento == NULL) {
+                comando_non_valido();
+            }
+            else if (!(controllo_lunghezza_min(argomento, MIN_LUNGHEZZA_PAROLA))) {
+                printf(" parola troppo corta \n"
+                        "deve avere almeno %d caratteri \n"
+                        "%s \n", MIN_LUNGHEZZA_PAROLA, PAROLIERE);
+            }
+            else {
+                // se la parola è lunga almeno 4 caratteri, allora invio al server
+                richiesta.type = MSG_PAROLA;
+                richiesta.length = strlen(argomento);
+
+                richiesta.data = (char*)malloc(richiesta.length + 1);
+                strncpy(richiesta.data, argomento, richiesta.length);
+                richiesta.data[richiesta.length] = '\0';
+
+                invio_msg(fd_c, &richiesta);
+            }
         }
-        else if (strcmp(comando, "classifica")) {
+        else if (strcmp(comando, "classifica") == 0) {
             richiesta.type = MSG_PUNTI_FINALI;
             invio_msg(fd_c, &richiesta);
         }
-        else if (strcmp(comando, "fine")) {
+        else if (strcmp(comando, "fine") == 0) {
             // comando di chiusura del client
         }
         else {
             // è stato inserito un comando non valido
-            printf("Richiesta non valida! \n");
-            printf("Per visualizzare i comandi disponibili, digitare 'aiuto' \n");
-            printf("[PROMPT PAROLIERE] --> ");
+            comando_non_valido();
         }
-
-
-
     }
 
     // chiusura del thread
@@ -120,7 +189,7 @@ void *ricezione_client (void *args) {
             printf("%s \n", risposta->data);
         }
         else if (risposta->type == MSG_ERR) {
-            printf("Errore: %s\n", risposta->data);
+            printf("errore: %s\n", risposta->data);
         }
         else if (risposta->type == MSG_MATRICE) {
             stampa_matrice(risposta->data);
@@ -153,7 +222,6 @@ void *ricezione_client (void *args) {
     // chiusura del thread
 
 }
-
 
 void client (char* nome_server, int porta_server) {
     int ret;

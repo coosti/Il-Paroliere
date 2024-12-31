@@ -30,11 +30,28 @@
 #define MSG_POST_BACHECA 'H'
 #define MSG_SHOW_BACHECA 'S'
 
+#define MAX_LUNGHEZZA_USERNAME 11 // 10 caratteri + terminatore
+#define MIN_LUNGHEZZA_USERNAME 3
+
+#define MIN_LUNGHEZZA_PAROLA 4
+
+char *PAROLIERE = "[PROMPT PAROLIERE] --> ";
+
 typedef struct {
     char type; // è K, E, R, ecc...
     unsigned int length;
     char *data;
 } Msg_Socket;
+
+void stampa_comandi();
+
+void comando_non_valido();
+
+int controllo_lunghezza_max (char *argomento, int max_lunghezza);
+
+int controllo_lunghezza_min (char *argomento, int min_lunghezza);
+
+int username_valido(char *nome_utente);
 
 void invio_msg(int fd, Msg_Socket *msg);
 

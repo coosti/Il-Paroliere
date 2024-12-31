@@ -18,6 +18,7 @@
 #include "header/macros.h"
 #include "header/trie.h"
 #include "header/bacheca.h"
+#include "header/shared.h"
 
 // file contenente le funzioni per la gestione della bacheca
 
@@ -30,7 +31,7 @@ Messaggio* allocazione_bacheca() {
     }
 
     for(int i = 0; i < MAX_MESSAGGI; i++) {
-        bacheca[i].nome_utente = malloc(MAX_CARATTERI_USERNAME);
+        bacheca[i].nome_utente = malloc(MAX_LUNGHEZZA_USERNAME);
         if (bacheca[i].nome_utente == NULL) {
             perror("Errore allocazione nome_utente");
             exit(EXIT_FAILURE);
@@ -53,13 +54,19 @@ void inserimento_bacheca(Messaggio bacheca[], char *username, char *msg, int *nu
         
         // shift dei messaggi in avanti
         for (int i = *num_msg; i > 0; i--) {
-            strncpy(bacheca[i].nome_utente, bacheca[i-1].nome_utente, MAX_CARATTERI_USERNAME);
+            strncpy(bacheca[i].nome_utente, bacheca[i-1].nome_utente, MAX_LUNGHEZZA_USERNAME);
+            bacheca[i].nome_utente[MAX_LUNGHEZZA_USERNAME] = '\0';
+
             strncpy(bacheca[i].messaggio, bacheca[i-1].messaggio, MAX_CARATTERI_MESSAGGIO);
+            bacheca[i].messaggio[MAX_CARATTERI_MESSAGGIO] = '\0';
         }
 
         // inserimento in posizione 0
-        strncpy(bacheca[0].nome_utente, username, MAX_CARATTERI_USERNAME);
+        strncpy(bacheca[0].nome_utente, username, MAX_LUNGHEZZA_USERNAME);
+        bacheca[0].nome_utente[MAX_LUNGHEZZA_USERNAME] = '\0';
+
         strncpy(bacheca[0].messaggio, msg, MAX_CARATTERI_MESSAGGIO);
+        bacheca[0].messaggio[MAX_CARATTERI_MESSAGGIO] = '\0';
 
         (*num_msg)++;
     }
@@ -68,13 +75,19 @@ void inserimento_bacheca(Messaggio bacheca[], char *username, char *msg, int *nu
 
         // shift in avanti -> messaggio in ultima posizione va perso
         for (int i = MAX_MESSAGGI-1; i > 0; i--) {
-            strncpy(bacheca[i].nome_utente, bacheca[i-1].nome_utente, MAX_CARATTERI_USERNAME);
+            strncpy(bacheca[i].nome_utente, bacheca[i-1].nome_utente, MAX_LUNGHEZZA_USERNAME);
+            bacheca[i].nome_utente[MAX_LUNGHEZZA_USERNAME] = '\0';
+
             strncpy(bacheca[i].messaggio, bacheca[i-1].messaggio, MAX_CARATTERI_MESSAGGIO);
+            bacheca[i].messaggio[MAX_CARATTERI_MESSAGGIO] = '\0';
         }
 
         // inserimento in posizione 0
-        strncpy(bacheca[0].nome_utente, username, MAX_CARATTERI_USERNAME);
+        strncpy(bacheca[0].nome_utente, username, MAX_LUNGHEZZA_USERNAME);
+        bacheca[0].nome_utente[MAX_LUNGHEZZA_USERNAME] = '\0';
+
         strncpy(bacheca[0].messaggio, msg, MAX_CARATTERI_MESSAGGIO);
+        bacheca[0].messaggio[MAX_CARATTERI_MESSAGGIO] = '\0';
     }
 }
 

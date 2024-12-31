@@ -21,15 +21,15 @@
 #include "header/matrice.h"
 
 // costanti
+
 #define N 256
 
 #define MAX_CLIENT 32
 
-#define MAX_LUNGHEZZA_USERNAME 11
-
 #define MAX_MESSAGGI 8
 
-
 void caricamento_dizionario(char *file_dizionario, Trie *radice);
+
+void *gioco (void *args);
 
 void *scorer (void *arg);

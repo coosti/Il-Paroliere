@@ -22,6 +22,49 @@
 
 // implementazione delle funzioni per richieste e risposte nella forma corretta
 
+void stampa_comandi() {
+    printf("\n ------ comandi disponibili ------ \n"
+            "aiuto - richiedere i comandi disponibili \n"
+            "registra_utente <nome_utente> - registrazione al gioco \n"
+            "matrice - richiedere la matrice corrente e il tempo\n"
+            "msg <testo> - postare un messaggio sulla bacheca \n"
+            "show_msg - stampa della bacheca \n"
+            "p <parola> - proporre una parola \n"
+            "classifica - richiedere la classifica \n"
+            "fine - uscire dal gioco \n"
+            "---------------------------------- \n");
+}
+
+void comando_non_valido() {
+    printf("richiesta non valida! \n"
+            "per visualizzare i comandi, digitare 'aiuto' \n"
+            "%s \n", PAROLIERE);
+}
+
+int controllo_lunghezza_max (char *argomento, int max_lunghezza) {
+    if (strlen(argomento) > max_lunghezza) {
+        return 0;
+    }
+    return 1;
+}
+
+int controllo_lunghezza_min (char *argomento, int min_lunghezza) {
+    if (strlen(argomento) < min_lunghezza) {
+        return 0;
+    }
+    return 1;
+}
+
+int username_valido(char *nome_utente) {
+    while (*nome_utente) {
+        if (!isalnum(*nome_utente) || !islower(*nome_utente)) {
+            return 0;
+        }
+        nome_utente++;
+    }
+    return 1;
+}
+
 // funzione di invio
 void invio_msg(int fd, Msg_Socket *msg) {
     int ret;
