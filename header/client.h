@@ -27,7 +27,7 @@
 typedef struct {
     pthread_t t_id; // tid
     int *sck;   // puntatore al file descriptor del socket
-} thread_arg;
+} thread_args;
 
 void *invio_client (void *args);
 

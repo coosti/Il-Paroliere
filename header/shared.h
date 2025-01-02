@@ -27,6 +27,7 @@
 #define MSG_PUNTI_FINALI 'F'
 #define MSG_PUNTI_PAROLA 'P'
 #define MSG_SERVER_SHUTDOWN 'B'
+#define MSG_CLIENT_SHUTDOWN 'C'
 #define MSG_POST_BACHECA 'H'
 #define MSG_SHOW_BACHECA 'S'
 
@@ -38,7 +39,7 @@
 char *PAROLIERE = "[PROMPT PAROLIERE] --> ";
 
 typedef struct {
-    char type; // è K, E, R, ecc...
+    char type;
     unsigned int length;
     char *data;
 } Msg_Socket;

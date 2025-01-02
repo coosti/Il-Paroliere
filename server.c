@@ -59,6 +59,10 @@ void caricamento_dizionario(char *file_dizionario, Trie *radice) {
     fclose(fp);
 }
 
+int sorting_classifica(const void *a, const void *b) {
+    // return strcmp(*(const char **)a, *(const char **)b);
+}
+
 
 // funzione per la gestione del server
 void server(char* nome_server, int porta_server) {
@@ -94,6 +98,7 @@ void server(char* nome_server, int porta_server) {
 
 
 }
+
 
 
 // main per il controllo dei parametri

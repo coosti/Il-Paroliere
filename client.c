@@ -24,14 +24,15 @@
 
 int fd_client;
 
-thread_arg *comunicazione;
+thread_args *comunicazione;
 
 // thread per leggere comandi da tastiera e inviarli al server
+// SERVIREBBE UNA LOCK !!!!!
 void *invio_client (void *args) {
     int ret;
 
     // dagli argomenti recuperare il descrittore del socket
-    thread_arg *param = (thread_arg *)args;
+    thread_args *param = (thread_args *)args;
 
     int fd_c = *(param->sck);
 
@@ -61,12 +62,16 @@ void *invio_client (void *args) {
         // if con tutti i casi
         if (strcmp(comando, "aiuto") == 0 && argomento == NULL) {
             stampa_comandi();
+            free(msg_stdin);
         }
         else if (strcmp(comando, "registra_utente") == 0) {
             // prima di inviare il messaggio, controllare la validità del nome utente
             // lunghezza compresa tra 3 e 10, controllo sui caratteri alfanumerici e tutto minuscolo
             if (argomento == NULL) {
+                // se il parametro non viene inserito, stampare messaggio di errore e dare la possibilità di inviare un altro comando
                 comando_non_valido();
+                free(msg_stdin);
+                continue;
             }
             else if (!(controllo_lunghezza_min(argomento, MIN_LUNGHEZZA_USERNAME))) {
                 printf("nome utente troppo corto! \n"
@@ -93,16 +98,21 @@ void *invio_client (void *args) {
                 richiesta.data[richiesta.length] = '\0';
 
                 invio_msg(fd_c, &richiesta);
+                free(richiesta.data);
+                free(msg_stdin);
             }
         }
         else if (strcmp(comando, "matrice") == 0 && argomento == NULL) {
             richiesta.type = MSG_MATRICE;
             invio_msg(fd_c, &richiesta);
+
+            free(msg_stdin);
         }
         else if (strcmp(comando, "msg") == 0) {
             // prima di inviare il messaggio, controllarne la lunghezza
             if (argomento == NULL) {
                 comando_non_valido();
+                continue;
             }
             else if (strlen(argomento) == 0) {
                 printf("messaggio vuoto! \n"
@@ -123,17 +133,24 @@ void *invio_client (void *args) {
                 richiesta.data[richiesta.length] = '\0';
 
                 invio_msg(fd_c, &richiesta);
+
+                free(richiesta.data);
+                free(msg_stdin);
             }
         }
         else if (strcmp(comando, "show_msg") == 0 && argomento == NULL) {
             richiesta.type = MSG_SHOW_BACHECA;
             invio_msg(fd_c, &richiesta);
+
+            free(msg_stdin);
         }
         else if (strcmp(comando, "p") == 0) {
             // controllare la lunghezza minima della parola
             // controlli su esistenza nella matrice e nel dizionario li fa il SERVER
             if (argomento == NULL) {
                 comando_non_valido();
+                free(msg_stdin);
+                continue;
             }
             else if (!(controllo_lunghezza_min(argomento, MIN_LUNGHEZZA_PAROLA))) {
                 printf(" parola troppo corta \n"
@@ -150,14 +167,25 @@ void *invio_client (void *args) {
                 richiesta.data[richiesta.length] = '\0';
 
                 invio_msg(fd_c, &richiesta);
+
+                free(richiesta.data);
+                free(msg_stdin);
             }
         }
         else if (strcmp(comando, "classifica") == 0) {
             richiesta.type = MSG_PUNTI_FINALI;
             invio_msg(fd_c, &richiesta);
+
+            free(msg_stdin);
         }
         else if (strcmp(comando, "fine") == 0) {
-            // comando di chiusura del client
+            richiesta.type = MSG_CLIENT_SHUTDOWN;
+            invio_msg(fd_c, &richiesta);
+
+            free(msg_stdin);
+
+            break;
+            // chiusura del client -> chi se ne occupa? la deve fare il client stesso?
         }
         else {
             // è stato inserito un comando non valido
@@ -165,7 +193,7 @@ void *invio_client (void *args) {
         }
     }
 
-    // chiusura del thread
+    return NULL;
 }
 
 // thread per ricevere messaggi dal server
@@ -173,54 +201,56 @@ void *ricezione_client (void *args) {
     int ret;
 
     // dagli argomenti recuperare il descrittore del socket
-    thread_arg *param = (thread_arg *)args;
+    thread_args *param = (thread_args *)args;
 
     int fd_c = *(param->sck);
 
+    // attesa della risposta dal server
     while (1) {
         Msg_Socket *risposta = ricezione_msg(fd_c);
 
         if (risposta->data == NULL) {
-            // non ho ricevuto nulla dal server
-            // che faccio?
+            // se non si riceve nulla, continuare ad attendere
+            continue;
         }
-
         if (risposta->type == MSG_OK) {
             printf("%s \n", risposta->data);
         }
         else if (risposta->type == MSG_ERR) {
-            printf("errore: %s\n", risposta->data);
+            printf("%s\n", risposta->data);
         }
         else if (risposta->type == MSG_MATRICE) {
+            // ma la matrice che ottengo è una stringa???
             stampa_matrice(risposta->data);
         }
         else if (risposta->type == MSG_TEMPO_PARTITA) {
             // stampa del tempo rimanente
+            printf("Mancano %s minuti alla fine della partita \n", risposta->data);
         }
         else if (risposta->type == MSG_TEMPO_ATTESA) {
             // stampa del tempo della pausa
+            printf("Mancano %s minuti all'inizio della partita \n", risposta->data);
         }
         else if (risposta->type == MSG_PUNTI_PAROLA) {
-            // stampa punteggio parola
+            // stampa punteggio parola -> funzione ????
+            printf("Hai ottenuto %s punti \n", risposta->data);
         }
         else if (risposta->type == MSG_PUNTI_FINALI) {
-            // stampa classifica
+            // funzione per la stampa della classifica
+            // devo aspettare lo scorer
         }
         else if (risposta->type == MSG_SHOW_BACHECA) {
             // stampa_bacheca(risposta->data, risposta->length);
         }
         else if (risposta->type == MSG_SERVER_SHUTDOWN) {
-            // il server è stato chiuso, chiudere il client 
-        }
-        else {
-            // risposta non valida
+            printf("%s \n", risposta->data); 
         }
 
-
+        // se la risposta non è valida, la ignoro
+        printf("%s, PAROLIERE \n");
     }
 
-    // chiusura del thread
-
+    return NULL;
 }
 
 void client (char* nome_server, int porta_server) {
@@ -257,8 +287,10 @@ int main(int argc, char *ARGV[]) {
     // creazione socket client
     client(nome_server, porta_server);
 
+    // prompt e display dei comandi
+
     // allocazione spazio per la struct per i thread invio e ricezione
-    SYSCN(comunicazione, (thread_arg *)malloc(NUM_THREAD*sizeof(thread_arg)), "Errore nella malloc");
+    SYSCN(comunicazione, (thread_args *)malloc(NUM_THREAD*sizeof(thread_args)), "Errore nella malloc");
 
     // assegnazione del descrittore
     comunicazione[0].sck = &fd_client;
