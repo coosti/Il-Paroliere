@@ -20,8 +20,4 @@
     }
 
 // macro per il controllo delle system call sui thread che ritornano dei valori diversi da 0 in caso di errore
-#define SYST(cmd) \
-    if (cmd != 0) { \
-        perror("errore thread"); \
-        exit(EXIT_FAILURE); \
-    }
+#define SYST(cmd) if (cmd != 0) { perror("errore thread"); exit(EXIT_FAILURE); }

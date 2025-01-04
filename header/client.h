@@ -14,10 +14,10 @@
 #include <arpa/inet.h>
 #include <sys/stat.h>
 
-#include "header/macros.h"
-#include "header/shared.h"
-#include "header/bacheca.h"
-#include "header/matrice.h"
+#include "macros.h"
+#include "shared.h"
+#include "bacheca.h"
+#include "matrice.h"
 
 #define NUM_THREAD 2
 

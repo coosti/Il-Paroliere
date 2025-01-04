@@ -16,7 +16,6 @@
 #include <sys/stat.h>
 
 #include "header/server.h"
-#include "header/macros.h"
 
 // variabili globali
 
@@ -37,6 +36,12 @@ Trie *radice = NULL;
 Messaggio *bacheca;
 
 char **matrice;
+
+
+
+// mutex
+
+
 
 // funzioni
 
@@ -95,7 +100,9 @@ void server(char* nome_server, int porta_server) {
 
 
     // ciclo di accettazione delle connessioni
-
+    /*while(1) {
+        
+    }*/
 
 }
 
@@ -150,7 +157,7 @@ int main(int argc, char *ARGV[]) {
                 dizionario = optarg;
             break;
             default:
-                printf(stderr, "Errore! Parametri: %s nome_server porta_server [--matrici data_filename] [--durata durata_gioco] [--seed rnd_seed] [--diz dizionario] \n", ARGV[0]);
+                printf("Errore! Parametri: %s nome_server porta_server [--matrici data_filename] [--durata durata_gioco] [--seed rnd_seed] [--diz dizionario] \n", ARGV[0]);
                 exit(EXIT_FAILURE);
         }
     }

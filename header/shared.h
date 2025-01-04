@@ -16,6 +16,8 @@
 #include <arpa/inet.h>
 #include <sys/stat.h>
 
+#include "macros.h"
+
 // messaggi
 #define MSG_OK 'K'
 #define MSG_ERR 'E'
@@ -36,7 +38,7 @@
 
 #define MIN_LUNGHEZZA_PAROLA 4
 
-char *PAROLIERE = "[PROMPT PAROLIERE] --> ";
+char *PAROLIERE;
 
 typedef struct {
     char type;

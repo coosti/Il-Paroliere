@@ -15,16 +15,15 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-#include "header/macros.h"
 #include "header/client.h"
-#include "header/shared.h"
-#include "header/matrice.h"
 
 // variabili globali
 
 int fd_client;
 
 thread_args *comunicazione;
+
+char *PAROLIERE = "[PROMPT PAROLIERE] --> ";
 
 // thread per leggere comandi da tastiera e inviarli al server
 // SERVIREBBE UNA LOCK !!!!!
@@ -220,8 +219,8 @@ void *ricezione_client (void *args) {
             printf("%s\n", risposta->data);
         }
         else if (risposta->type == MSG_MATRICE) {
-            // ma la matrice che ottengo è una stringa???
-            stampa_matrice(risposta->data);
+            // devo far diventare la risposta una matrice
+            //stampa_matrice(risposta->data);
         }
         else if (risposta->type == MSG_TEMPO_PARTITA) {
             // stampa del tempo rimanente
@@ -247,7 +246,7 @@ void *ricezione_client (void *args) {
         }
 
         // se la risposta non è valida, la ignoro
-        printf("%s, PAROLIERE \n");
+        printf("%s \n", PAROLIERE);
     }
 
     return NULL;
@@ -297,10 +296,10 @@ int main(int argc, char *ARGV[]) {
     comunicazione[1].sck = &fd_client;
 
     // creazione thread invio
-    SYST(pthread_create(&comunicazione[0].t_id, 0, invio_msg, &comunicazione[0]));
+    SYST(pthread_create(&comunicazione[0].t_id, 0, invio_client, &comunicazione[0]));
 
     // creazione thread ricezione
-    SYST(pthread_create(&comunicazione[1].t_id, 0, ricezione_msg, &comunicazione[1]));
+    SYST(pthread_create(&comunicazione[1].t_id, 0, ricezione_client, &comunicazione[1]));
 
     // attesa thread
     SYST(pthread_join(comunicazione[0].t_id, NULL));

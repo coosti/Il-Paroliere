@@ -7,6 +7,7 @@
 #include <time.h>
 #include <pthread.h>
 #include <getopt.h> 
+#include <ctype.h>
 
 #include <sys/socket.h> 
 #include <sys/types.h>
@@ -14,11 +15,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-#include "header/macros.h"
-#include "header/server.h"
-#include "header/client.h"
 #include "header/shared.h"
-#include "header/matrice.h"
 
 // implementazione delle funzioni per richieste e risposte nella forma corretta
 
@@ -77,7 +74,7 @@ void invio_msg(int fd, Msg_Socket *msg) {
     SYSC(ret, write(fd, &msg->length, sizeof(int)), "Errore nella write della lunghezza del messaggio");
 
     // invio del messaggio
-    SYSC(ret, write(fd, &msg->data, &msg->length), "Errore nella write del messaggio");
+    SYSC(ret, write(fd, &msg->data, msg->length), "Errore nella write del messaggio");
 
     return;
 }

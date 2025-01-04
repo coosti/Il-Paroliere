@@ -14,11 +14,12 @@
 #include <arpa/inet.h>
 #include <sys/stat.h>
 
-#include "header/macros.h"
-#include "header/trie.h"
-#include "header/shared.h"
-#include "header/bacheca.h"
-#include "header/matrice.h"
+#include "macros.h"
+#include "trie.h"
+#include "shared.h"
+#include "liste.h"
+#include "bacheca.h"
+#include "matrice.h"
 
 // costanti
 
@@ -28,56 +29,12 @@
 
 #define MAX_MESSAGGI 8
 
-// nodo lista thread attivi
-typedef struct thread_attivo {
-    pthread_t t_id;
-    struct thread_attivo *next;
-} thread_attivo;
-
-// struct parametri thread
+// struct parametri thread client
 typedef struct {
     int *sck;
     // ...
     // potrebbe essere utile un puntatore alla lista in cui è contenuto?
 } client_args;
-
-// lista thread attivi
-typedef struct {
-    thread_attivo *head;
-    int num_thread;
-    // mutex per la lista
-} lista_thread;
-
-
-// struct giocatore
-typedef struct giocatore {
-    char *nome_utente;
-    pthread_t t_id;
-    int punteggio;
-    parole_trovate *parole;
-    int fd_c;
-} giocatore;
-
-// lista giocatori
-typedef struct {
-    giocatore *head;
-    int num_giocatori;
-} lista_giocatori;
-
-
-// lista parole trovate da un giocatore
-typedef struct parole_trovate {
-    char *parola;
-    int punti;
-    struct parole_trovate *next;
-} parole_trovate;
-
-
-// coda punteggi
-/*typedef struct classifica {
-    giocatore *utente;
-    struct classifica *next;
-} classifica;*/
 
 // funzione per il caricamento del dizionario nel trie
 void caricamento_dizionario(char *file_dizionario, Trie *radice);
@@ -90,8 +47,6 @@ void *gioco (void *args);
 
 // funzione del thread scorer
 void *scorer (void *arg);
-
-// funzioni liste
 
 // funzione controllo nome utente
 int controllo_username (char *nome_utente);
