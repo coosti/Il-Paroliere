@@ -33,7 +33,7 @@ void *invio_client (void *args) {
     // dagli argomenti recuperare il descrittore del socket
     thread_args *param = (thread_args *)args;
 
-    int fd_c = *(param->sck);
+    int fd_c = param->sck;
 
     while (1) {
         // lettura da standard input 
@@ -200,9 +200,9 @@ void *ricezione_client (void *args) {
     int ret;
 
     // dagli argomenti recuperare il descrittore del socket
-    thread_args *param = (thread_args *)args;
+    thread_args *param = (thread_args*)args;
 
-    int fd_c = *(param->sck);
+    int fd_c = param->sck;
 
     // attesa della risposta dal server
     while (1) {
@@ -219,8 +219,8 @@ void *ricezione_client (void *args) {
             printf("%s\n", risposta->data);
         }
         else if (risposta->type == MSG_MATRICE) {
-            // devo far diventare la risposta una matrice
-            //stampa_matrice(risposta->data);
+            // stampa della matrice
+            stampa_matrice_stringa(risposta->data);
         }
         else if (risposta->type == MSG_TEMPO_PARTITA) {
             // stampa del tempo rimanente
@@ -239,7 +239,7 @@ void *ricezione_client (void *args) {
             // devo aspettare lo scorer
         }
         else if (risposta->type == MSG_SHOW_BACHECA) {
-            // stampa_bacheca(risposta->data, risposta->length);
+            // stampa_bacheca_stringa(risposta->data, risposta->length);
         }
         else if (risposta->type == MSG_SERVER_SHUTDOWN) {
             printf("%s \n", risposta->data); 
@@ -292,8 +292,8 @@ int main(int argc, char *ARGV[]) {
     SYSCN(comunicazione, (thread_args *)malloc(NUM_THREAD*sizeof(thread_args)), "Errore nella malloc");
 
     // assegnazione del descrittore
-    comunicazione[0].sck = &fd_client;
-    comunicazione[1].sck = &fd_client;
+    comunicazione[0].sck = fd_client;
+    comunicazione[1].sck = fd_client;
 
     // creazione thread invio
     SYST(pthread_create(&comunicazione[0].t_id, 0, invio_client, &comunicazione[0]));

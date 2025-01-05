@@ -37,7 +37,9 @@ Messaggio *bacheca;
 
 char **matrice;
 
+lista_thread *Threads;
 
+lista_giocatori *Giocatori;
 
 // mutex
 
@@ -64,10 +66,130 @@ void caricamento_dizionario(char *file_dizionario, Trie *radice) {
     fclose(fp);
 }
 
-int sorting_classifica(const void *a, const void *b) {
+/*int sorting_classifica(const void *a, const void *b) {
     // return strcmp(*(const char **)a, *(const char **)b);
-}
+}*/
 
+// funzione per la gestione del client
+// fa sia da invio che da ricezione
+void *thread_client (void *args) {
+    int ret;
+
+    client_args *params = (client_args*)args;
+    int fd_c = params -> sck;
+
+    // giocatore associato al thread
+    giocatore *player;
+
+    lista_parole *Parole_Trovate = inizializza_parole_trovate();
+
+    // variabile per ricevere il messaggio
+    Msg_Socket *richiesta;
+
+    // variabile per inviare il messaggio
+    Msg_Socket risposta;
+
+    // prima della registrazione, si accettano solo messaggi di registrazione e di fine
+    // (messaggio di aiuto viene gestito nel client)
+    while (1) {
+        richiesta = ricezione_msg(fd_c);
+
+        risposta.type = ' ';
+        risposta.length = 0;
+        risposta.data = NULL;
+
+        if (richiesta -> type == MSG_CLIENT_SHUTDOWN) {
+            // se il client invia "fine"
+            // eliminare il thread dalla lista dei thread
+            rimuovi_thread(Threads, pthread_self());
+            // deallocare la struct dei suoi parametri
+            free(params);
+            // terminazione del thread
+            pthread_exit(NULL);
+        }
+        else if (richiesta -> type == MSG_REGISTRA_UTENTE) {
+            // controllo lunghezza e caratteri già fatto nel client
+            char *nome_utente = richiesta -> data;
+
+            // se la lista giocatori è piena inviare messaggio di errore
+            if (Giocatori -> num_giocatori == MAX_CLIENT) {
+                char *msg = "Numero massimo di giocatori raggiunto, rimani in attesa per giocare";
+                risposta.type = MSG_ERR;
+                risposta.length = strlen(msg);
+
+                risposta.data = (char*)malloc(risposta.length + 1);
+                strncpy(risposta.data, msg, risposta.length);
+                risposta.data[risposta.length] = '\0';
+
+                invio_msg(fd_c, &risposta);
+                free(risposta.data);
+                continue;
+            }
+            // se il nome utente è già presente nella lista giocatori inviare messaggio di errore
+            else if (cerca_giocatore(Giocatori, nome_utente) == 1) {
+                char *msg = "Nome utente già in uso, scegline un altro";
+                risposta.type = MSG_ERR;
+                risposta.length = strlen(msg);
+
+                risposta.data = (char*)malloc(risposta.length + 1);
+                strncpy(risposta.data, msg, risposta.length);
+                risposta.data[risposta.length] = '\0';
+
+                invio_msg(fd_c, &risposta);
+                free(risposta.data);
+                continue;
+            }
+
+            // se il nome utente è valido, inizializzare il giocatore
+            player = inserisci_giocatore(Giocatori, nome_utente, fd_c);
+            player -> parole_trovate = Parole_Trovate;
+
+            // inviare messaggio di avvenuta registrazione
+            char *msg = "Registrazione avvenuta con successo, sei pronto a giocare?";
+            risposta.type = MSG_OK;
+            risposta.length = strlen(msg);
+
+            risposta.data = (char*)malloc(risposta.length + 1);
+            strncpy(risposta.data, msg, risposta.length);
+            risposta.data[risposta.length] = '\0';
+
+            invio_msg(fd_c, &risposta);
+            break;
+        }
+        else if (richiesta -> data == NULL || richiesta -> type != MSG_REGISTRA_UTENTE || richiesta -> type != MSG_CLIENT_SHUTDOWN) {
+            // messaggio non valido
+            char *msg = "Messaggio non valido";
+            risposta.type = MSG_ERR;
+            risposta.length = strlen(msg);
+
+            risposta.data = (char*)malloc(risposta.length + 1);
+            strncpy(risposta.data, msg, risposta.length);
+            risposta.data[risposta.length] = '\0';
+
+            invio_msg(fd_c, &risposta);
+            free(risposta.data);
+            continue;
+        }
+
+        // pulire le variabili appena utilizzate per lo scambio di messaggi di questa fase
+        free(richiesta -> data);
+        free(richiesta);
+
+        if (risposta.data != NULL) {
+            free(risposta.data);
+            risposta.data = NULL;
+        }
+
+        risposta.type = ' ';
+        risposta.length = 0;
+    }
+
+    // invio messaggio di inizio gioco
+
+    // invio della matrice e del tempo
+
+
+}
 
 // funzione per la gestione del server
 void server(char* nome_server, int porta_server) {
@@ -76,37 +198,54 @@ void server(char* nome_server, int porta_server) {
 
     int ret;
 
-    struct sockaddr_in server_addr, client_addr;
+    struct sockaddr_in ind_server, ind_client;
 
     socklen_t len_addr;
 
     // creazione del socket INET restituendo il relativo file descriptor con protocollo TCP
     SYSC(fd_server, socket(AF_INET, SOCK_STREAM, 0), "Errore nella socket");
 
-    // inizializzazione struct server_addr
-    memset(&server_addr, 0, sizeof(server_addr));
+    // inizializzazione struct ind_server
+    memset(&ind_server, 0, sizeof(ind_server));
     
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(porta_server);
-    server_addr.sin_addr.s_addr = inet_addr(nome_server);
+    ind_server.sin_family = AF_INET;
+    ind_server.sin_port = htons(porta_server);
+    ind_server.sin_addr.s_addr = inet_addr(nome_server);
 
     // binding
-    SYSC(ret, bind(fd_server, (struct sockaddr *)&server_addr, sizeof(server_addr)), "Errore nella bind");
+    SYSC(ret, bind(fd_server, (struct sockaddr *)&ind_server, sizeof(ind_server)), "Errore nella bind");
 
     // listen
     SYSC(ret, listen(fd_server, MAX_CLIENT), "Errore nella listen");
 
-    // creazione gioco
+    inizializza_lista_thread(Threads);
+    
+    inizializza_lista_giocatori(Giocatori);
 
+    // ciclo di accettazione delle connessioni dei giocatori
+    // server continuamente in ascolto
+    while(1) {
+        // accept
+        len_addr = sizeof(ind_client);
+        SYSC(fd_client, accept(fd_server, (struct sockaddr*)&ind_client, &len_addr), "Errore nella accept");
 
-    // ciclo di accettazione delle connessioni
-    /*while(1) {
-        
-    }*/
+        // allocazione della struct per i parametri del thread
+        client_args *params = (client_args*)malloc(sizeof(client_args));
+        if (params == NULL) {
+            perror("Errore nella malloc");
+            exit(EXIT_FAILURE);
+        }
 
+        // inizializzazione dei parametri
+        params -> sck = fd_client;
+
+        // creazione del thread
+        SYST(pthread_create(&(params -> t_id), 0, thread_client, params));
+
+        // aggiunta del thread alla lista
+        aggiungi_thread(Threads, params -> t_id);
+    }
 }
-
-
 
 // main per il controllo dei parametri
 int main(int argc, char *ARGV[]) {
@@ -199,16 +338,13 @@ int main(int argc, char *ARGV[]) {
         }
     }
 
+    srand(rnd_seed);
+
     radice = nuovo_nodo();
 
     caricamento_dizionario(dizionario, radice);
 
     server(nome_server, porta_server);
 
-    srand(rnd_seed);
-
-    
+    return 0;
 }
-
-
-

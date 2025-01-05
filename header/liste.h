@@ -71,7 +71,7 @@ void svuota_lista_thread (lista_thread *lista);
 // funzioni lista di giocatori
 void inizializza_lista_giocatori (lista_giocatori *lista);
 
-void inserisci_giocatore (lista_giocatori *lista, char *nome_utente, int fd);
+giocatore *inserisci_giocatore (lista_giocatori *lista, char *nome_utente, int fd);
 
 void rimuovi_giocatore (lista_giocatori *lista, char *nome_utente);
 
@@ -81,7 +81,7 @@ void svuota_lista_giocatori (lista_giocatori *lista);
 
 
 // funzioni lista parole
-void inizializza_parole (lista_parole *lista);
+lista_parole *inizializza_parole (lista_parole *lista);
 
 void inserisci_parola (lista_parole *lista, char *parola, int punti);
 

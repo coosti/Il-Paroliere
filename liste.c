@@ -17,8 +17,6 @@
 #include "header/macros.h"
 #include "header/liste.h"
 
-// MANCANO LE LOCK ????
-
 // funzioni per la lista di thread
 
 void inizializza_lista_thread (lista_thread *lista) {
@@ -126,7 +124,7 @@ void inizializza_lista_giocatori (lista_giocatori *lista) {
     lista -> num_giocatori = 0;
 }
 
-void inserisci_giocatore (lista_giocatori *lista, char *nome_utente, int fd) {
+giocatore *inserisci_giocatore (lista_giocatori *lista, char *nome_utente, int fd) {
 
     // creazione dell'elemento del giocatore nella lista
     giocatore *g = (giocatore*)malloc(sizeof(giocatore));
@@ -161,6 +159,8 @@ void inserisci_giocatore (lista_giocatori *lista, char *nome_utente, int fd) {
     lista -> head = g;
 
     lista -> num_giocatori++;
+
+    return g;
 }
 
 int cerca_giocatore (lista_giocatori *lista, char *nome_utente) {
@@ -254,9 +254,17 @@ void svuota_lista_giocatori (lista_giocatori *lista) {
 }
 
 
-void inizializza_parole (lista_parole *lista) {
+lista_parole *inizializza_parole () {
+    lista_parole *lista = (lista_parole*)malloc(sizeof(lista_parole));
+    if (lista == NULL) {
+        perror("Errore nell'allocazione della lista di parole");
+        exit(EXIT_FAILURE);
+    }
+
     lista -> head = NULL;
     lista -> num_parole = 0;
+
+    return lista;
 }
 
 void inserisci_parola (lista_parole *lista, char *parola, int punti) {

@@ -104,7 +104,7 @@ void matrice_casuale(char **matrice){
     // quando trovo una parola che ha 'qu' e ho una q nella prossima casella va bene
 //}
 
-// stampa della matrice dopo MSG_MATRICE
+// stampa della matrice
 void stampa_matrice(char **matrice) {
     for(int i = 0; i < MAX_CASELLE; i++) {
         for (int j = 0; j < MAX_CASELLE; j++) {
@@ -115,6 +115,23 @@ void stampa_matrice(char **matrice) {
         }
         printf("\n");
     }
+}
+
+// stampa della matrice da MSG_MATRICE
+void stampa_matrice_stringa (char *matrice) {
+    for (int i = 0; i < MAX_CASELLE; i++) {
+        for (int j = 0; j < MAX_CASELLE; j++) {
+            // per ottenere l'indice del carattere corretto 
+            // si moltiplica l'indice della riga al numero massimo di caselle (4)
+            // e si somma l'indice della colonna
+            if (matrice[i * MAX_CASELLE + j] == 'q')
+                printf(" %s ", "Qu");
+            else
+                printf(" %c ", toupper(matrice[i * MAX_CASELLE + j]));
+        }
+        printf("\n");
+    }
+
 }
 
 void deallocazione_matrice(char **matrice){

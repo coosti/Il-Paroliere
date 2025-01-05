@@ -30,8 +30,9 @@
 #define MAX_MESSAGGI 8
 
 // struct parametri thread client
-typedef struct {
-    int *sck;
+typedef struct client_args {
+    pthread_t t_id;
+    int sck;
     // ...
     // potrebbe essere utile un puntatore alla lista in cui è contenuto?
 } client_args;
