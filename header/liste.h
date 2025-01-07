@@ -27,6 +27,19 @@ typedef struct {
     // mutex per la lista
 } lista_thread;
 
+// nodo per la lista dei thread handler
+typedef struct thread_handler {
+    pthread_t t_id;
+    pthread_t client_tid; // tid del thread client associato
+    struct thread_handler *next;
+} thread_handler;
+
+// lista thread handler
+typedef struct {
+    thread_handler *head;
+    int num_thread;
+} lista_thread_handler;
+
 // lista parole trovate da un giocatore
 typedef struct parola_trovata {
     char *parola;
@@ -43,6 +56,7 @@ typedef struct lista_parole {
 typedef struct giocatore {
     char *username;
     pthread_t t_id;
+    pthread_t tid_sigclient;
     int punteggio;
     lista_parole *parole_trovate;
     int fd_c;
@@ -55,11 +69,28 @@ typedef struct {
     int num_giocatori;
 } lista_giocatori;
 
+// punteggio giocatore
+typedef struct risultato {
+    char *username;
+    int punteggio;
+    struct risultato *next;
+} risultato;
+
+// coda punteggi
+typedef struct coda_risultati {
+    risultato *head;
+    risultato *tail;
+} coda_risultati;
+
+typedef struct {
+    char *nome_utente;
+    int punteggio;
+} punteggi;
 
 // funzioni liste
 
 // funzioni lista di thread
-void inizializza_lista_thread (lista_thread *lista);
+void inizializza_lista_thread (lista_thread **lista);
 
 void inserisci_thread (lista_thread *lista, pthread_t tid);
 
@@ -67,9 +98,18 @@ void rimuovi_thread (lista_thread *lista, pthread_t tid);
 
 void svuota_lista_thread (lista_thread *lista);
 
+// funzioni lista di handler
+void inizializza_lista_handler (lista_thread_handler **lista);
+
+void inserisci_handler (lista_thread_handler *lista, pthread_t tid, pthread_t tid_client);
+
+void rimuovi_handler (lista_thread_handler *lista, pthread_t tid);
+
+void invia_segnale (lista_thread_handler *lista, int segnale);
+
 
 // funzioni lista di giocatori
-void inizializza_lista_giocatori (lista_giocatori *lista);
+void inizializza_lista_giocatori (lista_giocatori **lista);
 
 giocatore *inserisci_giocatore (lista_giocatori *lista, char *nome_utente, int fd);
 
@@ -77,14 +117,31 @@ void rimuovi_giocatore (lista_giocatori *lista, char *nome_utente);
 
 int cerca_giocatore (lista_giocatori *lista, char *nome_utente);
 
+char *recupera_username (lista_giocatori *lista, pthread_t tid_sigclient);
+
+int recupera_punteggio (lista_giocatori *lista, pthread_t tid_sigclient);
+
+void resetta_punteggio (lista_giocatori *lista, pthread_t tid_sigclient);
+
 void svuota_lista_giocatori (lista_giocatori *lista);
+
+void invia_sigusr2 (lista_giocatori *lista, int segnale);
 
 
 // funzioni lista parole
-lista_parole *inizializza_parole (lista_parole *lista);
+lista_parole *inizializza_parole ();
 
 void inserisci_parola (lista_parole *lista, char *parola, int punti);
 
 int cerca_parola (lista_parole *lista, char *parola);
 
 void svuota_lista_parole (lista_parole *lista);
+
+
+// funzioni coda risultato
+void inizializza_coda_risultati (coda_risultati **coda);
+
+void inserisci_risultato (coda_risultati *coda, char *username, int punteggio);
+
+risultato *leggi_risultato (coda_risultati *coda);
+

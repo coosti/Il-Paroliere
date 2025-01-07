@@ -19,9 +19,15 @@
 
 // funzioni per la lista di thread
 
-void inizializza_lista_thread (lista_thread *lista) {
-    lista -> head = NULL;
-    lista -> num_thread = 0;
+void inizializza_lista_thread (lista_thread **lista) {
+    *lista = (lista_thread*)malloc(sizeof(lista_thread));
+    if (lista == NULL) {
+        perror("Errore nell'allocazione della lista di thread attivi");
+        exit(EXIT_FAILURE);
+    }
+
+    (*lista) -> head = NULL;
+    (*lista) -> num_thread = 0;
 }
 
 void inserisci_thread (lista_thread *lista, pthread_t tid) {
@@ -118,10 +124,97 @@ void svuota_lista_thread (lista_thread *lista) {
 }
 
 
+// funzioni per i thread handler
+// struttura delle funzioni identiche a quelle per i thread
+void inizializza_lista_handler (lista_thread_handler **lista) {
+    *lista = (lista_thread_handler*)malloc(sizeof(lista_thread_handler));
+    if (lista == NULL) {
+        perror("Errore nell'allocazione della lista di thread handler");
+        exit(EXIT_FAILURE);
+    }
 
-void inizializza_lista_giocatori (lista_giocatori *lista) {
-    lista -> head = NULL;
-    lista -> num_giocatori = 0;
+    (*lista) -> head = NULL;
+    (*lista) -> num_thread = 0;
+}
+
+void inserisci_handler (lista_thread_handler *lista, pthread_t tid, pthread_t tid_client) {
+    thread_handler *thd = (thread_handler*)malloc(sizeof(thread_handler));
+    if (thd == NULL) {
+        perror("Errore nell'allocazione del thread handler");
+        exit(EXIT_FAILURE);
+    }
+
+    thd -> t_id = tid;
+
+    // inizializzo con il tid del thread gestore client che l'ha creato
+    thd -> client_tid = tid_client;
+
+    thd -> next = lista -> head;
+
+    lista -> head = thd;
+
+    lista -> num_thread++;
+}
+
+void rimuovi_handler (lista_thread_handler *lista, pthread_t tid) {
+    thread_handler *tmp = lista -> head;
+    thread_handler *prev = NULL;
+
+    if (tmp == NULL) {
+        printf("Lista handler vuota\n");
+        return;
+    }
+
+    if (tmp != NULL && tmp -> t_id == tid) {
+        lista -> head = tmp -> next;
+        tmp -> next = NULL;
+
+        free(tmp);
+        lista -> num_thread--;
+        return;
+    }
+    else {
+        int i = 0;
+
+        while (tmp != NULL && i < lista -> num_thread) {
+            if (tmp -> t_id == tid) {
+                prev -> next = tmp -> next;
+                
+                tmp -> next = NULL;
+
+                free(tmp);
+                lista -> num_thread--;
+                return;
+            }
+
+            prev = tmp;
+
+            tmp = tmp -> next;
+
+            i++;
+        }
+        return;
+    }
+}
+
+void invia_segnale (lista_thread_handler *lista, int segnale) {
+    thread_handler *tmp = lista -> head;
+
+    while (tmp != NULL) {
+        pthread_kill(tmp -> t_id, segnale);
+        tmp = tmp -> next;
+    }
+}
+
+void inizializza_lista_giocatori (lista_giocatori **lista) {
+    *lista = (lista_giocatori*)malloc(sizeof(lista_giocatori));
+    if (lista == NULL) {
+        perror("Errore nell'allocazione della lista di giocatori");
+        exit(EXIT_FAILURE);
+    }
+
+    (*lista) -> head = NULL;
+    (*lista) -> num_giocatori = 0;
 }
 
 giocatore *inserisci_giocatore (lista_giocatori *lista, char *nome_utente, int fd) {
@@ -144,6 +237,9 @@ giocatore *inserisci_giocatore (lista_giocatori *lista, char *nome_utente, int f
 
     // assegnazione del tid del thread
     g -> t_id = pthread_self();
+
+    // assegnazione del tid del thread handler
+    g -> tid_sigclient = -1;
 
     // inizializzazione del punteggio a 0 a inizio partita
     g -> punteggio = 0;
@@ -183,6 +279,56 @@ int cerca_giocatore (lista_giocatori *lista, char *nome_utente) {
 
     // se non viene trovato ok
     return 0;
+}
+
+char *recupera_username (lista_giocatori *lista, pthread_t tid) {
+    giocatore *tmp = lista -> head;
+
+    if (tmp == NULL) {
+        return NULL;
+    }
+
+    while (tmp != NULL) {
+        if (tmp -> tid_sigclient == tid) {
+            return tmp -> username;
+        }
+        tmp = tmp -> next;        
+    }
+
+    return NULL;
+}
+
+int recupera_punteggio (lista_giocatori *lista, pthread_t tid) {
+    giocatore *tmp = lista -> head;
+    
+    if (tmp == NULL) {
+        return NULL;
+    }
+
+    while (tmp != NULL) {
+        if (tmp -> tid_sigclient == tid) {
+            return tmp -> punteggio;
+        }
+        tmp = tmp -> next;
+    }
+
+    return -1;
+}
+
+void resetta_punteggio (lista_giocatori *lista, pthread_t tid) {
+    giocatore *tmp = lista -> head;
+
+    if (tmp == NULL) {
+        return;
+    }
+
+    while (tmp != NULL) {
+        if (tmp -> tid_sigclient == tid) {
+            tmp -> punteggio = 0;
+            return;
+        }
+        tmp = tmp -> next;
+    }
 }
 
 void rimuovi_giocatore (lista_giocatori *lista, char *nome_utente) {
@@ -251,6 +397,15 @@ void svuota_lista_giocatori (lista_giocatori *lista) {
 
     lista -> head = NULL;
     lista -> num_giocatori = 0;
+}
+
+void invia_sigusr2 (lista_giocatori *lista, int segnale) {
+    thread_handler *tmp = lista -> head;
+
+    while (tmp != NULL) {
+        pthread_kill(tmp -> t_id, segnale);
+        tmp = tmp -> next;
+    }
 }
 
 
@@ -337,5 +492,78 @@ void svuota_lista_parole (lista_parole *lista) {
 
     lista -> head = NULL;
     lista -> num_parole = 0;
+
+    free(lista);
 }
 
+void *inizializza_codarisultati (coda_risultati **coda) {
+    *coda = (coda_risultati*)malloc(sizeof(coda_risultati));
+    if (coda == NULL) {
+        perror("Errore nell'allocazione della coda dei risultati");
+        exit(EXIT_FAILURE);
+    }
+
+    (*coda) -> head = NULL;
+    (*coda) -> tail = NULL;
+}
+
+// inserimento in coda
+void inserisci_risultato (coda_risultati *coda, char *username, int punteggio) {
+    risultato *r = (risultato*)malloc(sizeof(risultato));
+    if (r == NULL) {
+        perror("Errore nell'allocazione del risultato");
+        exit(EXIT_FAILURE);
+    }
+
+    // inizializzazione risultato
+    r -> username = (char*)malloc(strlen(username) + 1);
+    if (r -> username == NULL) {
+        perror("Errore nell'allocazione del nome utente");
+        free(r);
+        exit(EXIT_FAILURE);
+    }
+    strncpy(r -> username, username, strlen(username));
+    r -> username[strlen(username)] = '\0';
+
+    r -> punteggio = punteggio;
+
+    // inserimento in coda
+    // se la coda è vuota il nuovo elemento è sia testa che coda
+    if (coda -> head == NULL) {
+        coda -> head = r;
+        coda -> tail = r;
+    }
+    else {
+        // se la coda non è vuota, si aggiorna il riferimento next della coda con il nuovo elemento
+        coda -> tail -> next = r;
+        coda -> tail = r;
+    }
+}
+
+// rimozione in testa
+risultato *leggi_risultato (coda_risultati *coda) {
+    // controllare che non sia vuota
+    if (coda -> head = NULL) {
+        return NULL;
+    }
+
+    // puntatore per mantenere il riferimento all'elemento da restituire
+    risultato *tmp = coda -> head;
+
+    // se l'elemento da togliere è l'unico della coda
+    if (coda -> head == coda -> tail) {
+        // mettere a null entrambi i riferimenti di testa e coda
+        coda -> head = NULL;
+        coda -> tail = NULL;
+    }
+    else {
+        // se ci sono altri elementi oltre a quello tolto
+        // la nuova testa è l'elemento successivo
+        coda -> head = coda -> head -> next;        
+    }
+    
+    // pulire il riferimento next del nodo tolto
+    tmp -> next = NULL;
+
+    return tmp;
+}

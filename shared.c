@@ -62,6 +62,31 @@ int username_valido(char *nome_utente) {
     return 1;
 }
 
+void prepara_msg(int fd, char type, char *m) {
+    // variabile per inviare il messaggio
+    Msg_Socket risposta;
+
+    // preparazione del messaggio
+    risposta.type = type;
+    if (m == NULL) {
+        risposta.length = 0;
+    }
+    else {
+        risposta.length = strlen(m);
+
+        risposta.data = (char*)malloc(risposta.length + 1);
+        strncpy(risposta.data, m, risposta.length);
+        risposta.data[risposta.length] = '\0';
+    }
+
+    // viene passato il msg_socket alla funzione di invio
+    invio_msg(fd, &risposta);
+
+    free(risposta.data);
+    risposta.type = ' ';
+    risposta.length = 0;
+}
+
 // funzione di invio
 void invio_msg(int fd, Msg_Socket *msg) {
     int ret;

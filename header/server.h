@@ -6,7 +6,8 @@
 #include <fcntl.h>
 #include <time.h>
 #include <pthread.h>
-#include <getopt.h> 
+#include <getopt.h>
+#include <signal.h>
 #include <sys/socket.h> 
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -29,6 +30,8 @@
 
 #define MAX_MESSAGGI 8
 
+#define MAX_DIM 1024
+
 // struct parametri thread client
 typedef struct client_args {
     pthread_t t_id;
@@ -39,6 +42,8 @@ typedef struct client_args {
 
 // funzione per il caricamento del dizionario nel trie
 void caricamento_dizionario(char *file_dizionario, Trie *radice);
+
+char *tempo_rimanente (int minuti);
 
 // funzione dei thread che gestiscono i client
 void *thread_client (void *args);

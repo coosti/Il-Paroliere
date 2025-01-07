@@ -131,7 +131,17 @@ void stampa_matrice_stringa (char *matrice) {
         }
         printf("\n");
     }
+}
 
+char *matrice_a_stringa(char **matrice, char *stringa) {
+    for (int i = 0; i < MAX_CASELLE; i++) {
+        for (int j = 0; j < MAX_CASELLE; j++) {
+            stringa[i * MAX_CASELLE + j] = matrice[i][j];
+        }
+    }
+    stringa[pos] = '\0';
+
+    return stringa;
 }
 
 void deallocazione_matrice(char **matrice){

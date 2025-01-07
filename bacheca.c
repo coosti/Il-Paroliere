@@ -100,6 +100,23 @@ void stampa_bacheca(Messaggio bacheca[], int *num_msg) {
     
 }
 
+char *bacheca_a_stringa(Messaggio bacheca[], int *num_msg) {
+    char *stringa = malloc(MAX_MESSAGGI * (MAX_LUNGHEZZA_USERNAME + MAX_CARATTERI_MESSAGGIO));
+    if (stringa == NULL) {
+        perror("Errore allocazione stringa per la bacheca");
+        exit(EXIT_FAILURE);
+    }
+
+    for (int i = 0; i < *num_msg; i++) {
+        strcat(stringa, bacheca[i].nome_utente);
+        strcat(stringa, ", ");
+        strcat(stringa, bacheca[i].messaggio);
+        strcat(stringa, "\n");
+    }
+
+    return stringa;
+}
+
 // liberare memoria bacheca
 void deallocazione_bacheca(Messaggio bacheca[], int *num_msg) {
     for (int i =0; i<*num_msg; i++) {

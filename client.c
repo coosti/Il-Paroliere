@@ -25,8 +25,13 @@ thread_args *comunicazione;
 
 char *PAROLIERE = "[PROMPT PAROLIERE] --> ";
 
+// implementare il gestore dei segnali
+
+// alla chiusura ricordati di liberare struct comunicazione
+
+
 // thread per leggere comandi da tastiera e inviarli al server
-// SERVIREBBE UNA LOCK !!!!!
+// SERVIREBBE UNA LOCK ?????
 void *invio_client (void *args) {
     int ret;
 
@@ -50,13 +55,6 @@ void *invio_client (void *args) {
         // tokenizzare il contenuto di msg_stdin per prendere il comando ed eventuali parametri previsti
         char *comando = strtok(msg_stdin, " ");
         char *argomento = strtok(NULL, " ");
-
-        // messaggio da inviare -> indecisa se allocarla dinamicamente
-        Msg_Socket richiesta;
-        richiesta.type = ' ';
-        richiesta.length = 0;
-        // attualmente a null, alloco spazio solo quando c'è l'argomento
-        richiesta.data = NULL;
 
         // if con tutti i casi
         if (strcmp(comando, "aiuto") == 0 && argomento == NULL) {
@@ -88,22 +86,14 @@ void *invio_client (void *args) {
                         "%s \n", PAROLIERE);
             }
             else {
-                // se il nome utente è valido invio il messaggio
-                richiesta.type = MSG_REGISTRA_UTENTE;
-                richiesta.length = strlen(argomento);
+                // se il nome utente è valido invio il messaggio con l'username
+                prepara_msg(fd_c, MSG_REGISTRA_UTENTE, argomento);
 
-                richiesta.data = (char*)malloc(richiesta.length + 1);
-                strncpy(richiesta.data, argomento, richiesta.length);
-                richiesta.data[richiesta.length] = '\0';
-
-                invio_msg(fd_c, &richiesta);
-                free(richiesta.data);
                 free(msg_stdin);
             }
         }
         else if (strcmp(comando, "matrice") == 0 && argomento == NULL) {
-            richiesta.type = MSG_MATRICE;
-            invio_msg(fd_c, &richiesta);
+            prepara_msg(fd_c, MSG_MATRICE, NULL);
 
             free(msg_stdin);
         }
@@ -124,22 +114,13 @@ void *invio_client (void *args) {
             }
             else {
                 // se il messaggio è valido lo invio
-                richiesta.type = MSG_POST_BACHECA;
-                richiesta.length = strlen(argomento);
-                richiesta.data = (char*)malloc(richiesta.length + 1);
+                prepara_msg(fd_c, MSG_POST_BACHECA, argomento);
 
-                strncpy(richiesta.data, argomento, richiesta.length);
-                richiesta.data[richiesta.length] = '\0';
-
-                invio_msg(fd_c, &richiesta);
-
-                free(richiesta.data);
                 free(msg_stdin);
             }
         }
         else if (strcmp(comando, "show_msg") == 0 && argomento == NULL) {
-            richiesta.type = MSG_SHOW_BACHECA;
-            invio_msg(fd_c, &richiesta);
+            prepara_msg(fd_c, MSG_SHOW_BACHECA, NULL);
 
             free(msg_stdin);
         }
@@ -158,33 +139,22 @@ void *invio_client (void *args) {
             }
             else {
                 // se la parola è lunga almeno 4 caratteri, allora invio al server
-                richiesta.type = MSG_PAROLA;
-                richiesta.length = strlen(argomento);
+                prepara_msg(fd_c, MSG_PAROLA, argomento);
 
-                richiesta.data = (char*)malloc(richiesta.length + 1);
-                strncpy(richiesta.data, argomento, richiesta.length);
-                richiesta.data[richiesta.length] = '\0';
-
-                invio_msg(fd_c, &richiesta);
-
-                free(richiesta.data);
                 free(msg_stdin);
             }
         }
         else if (strcmp(comando, "classifica") == 0) {
-            richiesta.type = MSG_PUNTI_FINALI;
-            invio_msg(fd_c, &richiesta);
+            prepara_msg(fd_c, MSG_PUNTI_FINALI, NULL);
 
             free(msg_stdin);
         }
         else if (strcmp(comando, "fine") == 0) {
-            richiesta.type = MSG_CLIENT_SHUTDOWN;
-            invio_msg(fd_c, &richiesta);
+            prepara_msg(fd_c, MSG_CLIENT_SHUTDOWN, NULL);
 
             free(msg_stdin);
 
             break;
-            // chiusura del client -> chi se ne occupa? la deve fare il client stesso?
         }
         else {
             // è stato inserito un comando non valido
@@ -235,11 +205,24 @@ void *ricezione_client (void *args) {
             printf("Hai ottenuto %s punti \n", risposta->data);
         }
         else if (risposta->type == MSG_PUNTI_FINALI) {
-            // funzione per la stampa della classifica
-            // devo aspettare lo scorer
+            // stampa della classifica
+            int i = 0;
+
+            printf("Classifica finale: \n");
+            char *token = strtok(risposta->data, "\n");
+
+            printf("Il vincitore è: %s \n", token);
+
+            while (token != NULL) {
+                token = strtok(NULL, "\n");
+                printf(" %d %s \n", i, token);
+                i++;
+            }
+            
         }
         else if (risposta->type == MSG_SHOW_BACHECA) {
-            // stampa_bacheca_stringa(risposta->data, risposta->length);
+            // stampa della bacheca
+            printf("%s \n", risposta->data);
         }
         else if (risposta->type == MSG_SERVER_SHUTDOWN) {
             printf("%s \n", risposta->data); 
@@ -304,8 +287,6 @@ int main(int argc, char *ARGV[]) {
     // attesa thread
     SYST(pthread_join(comunicazione[0].t_id, NULL));
     SYST(pthread_join(comunicazione[1].t_id, NULL));
-
-    // alla chiusura, liberare la struct
 
     return 0;
 }

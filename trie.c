@@ -14,8 +14,6 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-#include "header/server.h"
-#include "header/macros.h"
 #include "header/trie.h"
 
 // file contenente le funzioni per la gestione del trie, utilizzato per caricare il dizionario
