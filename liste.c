@@ -197,11 +197,21 @@ void rimuovi_handler (lista_thread_handler *lista, pthread_t tid) {
     }
 }
 
-void invia_segnale (lista_thread_handler *lista, int segnale) {
+void invia_sigusr1 (lista_thread_handler *lista, int segnale) {
     thread_handler *tmp = lista -> head;
 
     while (tmp != NULL) {
         pthread_kill(tmp -> t_id, segnale);
+        tmp = tmp -> next;
+    }
+}
+
+void invia_sigusr2 (lista_thread *lista, int segnale) {
+    thread_attivo *tmp = lista -> head;
+
+    while (tmp != NULL) {
+        pthread_kill(tmp -> t_id, segnale);
+        
         tmp = tmp -> next;
     }
 }
@@ -315,6 +325,23 @@ int recupera_punteggio (lista_giocatori *lista, pthread_t tid) {
     return -1;
 }
 
+int recupera_fd (lista_giocatori *lista, pthread_t tid) {
+    giocatore *tmp = lista -> head;
+
+    if (tmp == NULL) {
+        return -1;
+    }
+
+    while (tmp != NULL) {
+        if (tmp -> t_id == tid) {
+            return tmp -> fd_c;
+        }
+        tmp = tmp -> next;
+    }
+
+    return -1;
+}
+
 void resetta_punteggio (lista_giocatori *lista, pthread_t tid) {
     giocatore *tmp = lista -> head;
 
@@ -397,15 +424,6 @@ void svuota_lista_giocatori (lista_giocatori *lista) {
 
     lista -> head = NULL;
     lista -> num_giocatori = 0;
-}
-
-void invia_sigusr2 (lista_giocatori *lista, int segnale) {
-    thread_handler *tmp = lista -> head;
-
-    while (tmp != NULL) {
-        pthread_kill(tmp -> t_id, segnale);
-        tmp = tmp -> next;
-    }
 }
 
 

@@ -46,9 +46,24 @@ char** allocazione_matrice(){
     return matrice;
 }
 
+// inizializzazione con lettere casuali
+void matrice_casuale(char **matrice){
+
+    for (int i = 0; i < MAX_CASELLE; i++) {
+        for (int j = 0; j < MAX_CASELLE; j++) {
+            // si genera una lettera minuscola casuale
+            char lettera = 'a' + (rand() % 26);
+
+            matrice[i][j] = lettera;
+        }
+    }
+}
+
 // inizializzazione con il file fornito
 void inizializzazione_matrice(char **matrice, char *file_matrice){
     FILE *fp = fopen(file_matrice, "r");
+
+    int i = 0;
 
     if (fp) {
         char buffer[N];
@@ -59,7 +74,7 @@ void inizializzazione_matrice(char **matrice, char *file_matrice){
         if (fgets(buffer, sizeof(buffer), fp)) {
             char *c = strtok(buffer, " ");
         
-            for (int i = 0; i < MAX_CASELLE; i++) {
+            for (i = 0; i < MAX_CASELLE; i++) {
                 for (int j = 0; j < MAX_CASELLE; j++) {
                     // inserire il token nella casella della matrice
                     // se si trova 'Qu' sostituire con q
@@ -75,34 +90,99 @@ void inizializzazione_matrice(char **matrice, char *file_matrice){
 
             pos = ftell(fp);
         }
+
+        // quando si arriva alla fine del file, inizio a generare matrici casuali
+        if (i < MAX_CASELLE) {
+            matrice_casuale(matrice);
+        }
+
+        fclose(fp);
     }
     else {
         perror("Errore nell'apertura del file dizionario");
         exit(EXIT_FAILURE);
     }
-
-    fclose(fp);
 }
 
-// inizializzazione con lettere casuali
-void matrice_casuale(char **matrice){
+// funzione ausiliaria ricorsiva
+int ricerca_parola (char **matrice, char *parola, int i_riga, int j_colonna, int r[], int c[], int pos, int length, int visitata[MAX_CASELLE][MAX_CASELLE]) {
+    
+    // casi base
 
-    for (int i = 0; i < MAX_CASELLE; i++) {
-        for (int j = 0; j < MAX_CASELLE; j++) {
-            // si genera una lettera minuscola casuale
-            char lettera = 'a' + (rand() % 26);
+    // se l'indice corrisponde con la lunghezza della parola -> trovata
+    if (pos == length) {
+        return 1;
+    }
 
-            matrice[i][j] = lettera;
+    // controllare che sia una casella valida
+    if (i_riga < 0 || i_riga >= MAX_CASELLE || j_colonna < 0 || j_colonna >= MAX_CASELLE) {
+        return 0;
+    }
+
+    // se la casella è già stata visitata -> non va bene!!
+    if (visitata[i_riga][j_colonna] == 1) {
+        return 0;
+    }
+
+    // se la lettera della casella non corrisponde al carattere della parola
+    if (matrice[i_riga][j_colonna] != parola[pos]) {
+        return 0;
+    }
+
+    // marcare la casella appena visitata
+    visitata[i_riga][j_colonna] = 1;
+
+    // caso ricorsivo
+
+    // visitare i cammini sulle 8 direzioni
+    for (int i = 0; i < 8; i++) {
+
+        // coordinate in cui cercare
+        int x = i_riga + r[i];
+        int y = j_colonna + c[i];
+
+        // se la ricerca in quella direzione ha avuto successo -> trovata
+        if (ricerca_parola(matrice, parola, x, y, r, c, pos + 1, length, visitata)) {
+            return 1;
         }
     }
+
+    // 'pulire' la casella visitata
+    visitata[i_riga][j_colonna] = 0;
+
+    // -> non trovata
+    return 0;
 }
 
 // ricerca della parola all'interno della matrice
-//int ricerca_matrice(char **matrice, char *parola){
+int ricerca_matrice(char **matrice, char *parola){
+    // lunghezza della parola
+    int length = strlen(parola);
 
+    // inizializzare una matrice di 0 e 1 per marcare le celle già visitate durante il cammino
+    int visitata[MAX_CASELLE][MAX_CASELLE] = {0};
 
-    // quando trovo una parola che ha 'qu' e ho una q nella prossima casella va bene
-//}
+    // definire le direzioni con coordinate (movimenti in ordine orario)
+    int r[] = {-1, -1, 0, 1, 1, 1, 0, -1};
+    int c[] = {0, 1, 1, 1, 0, -1, -1, -1};
+
+    // scorrere ogni casella della matrice 
+    for (int i = 0; i < MAX_CASELLE; i++) {
+        for (int j = 0; j < MAX_CASELLE; j++) {
+            // se la lettera in quella casella è uguale all'iniziale della parola
+            if (matrice[i][j] == parola[0]) {
+                // faccio partire la ricerca da quella casella
+                if (ricerca_parola(matrice, parola, i, j, r, c, 0, length, visitata)) {
+                    // parola trovata
+                    return 1;
+                }
+            }
+        }
+    }
+
+    // parola non trovata
+    return 0;   
+}
 
 // stampa della matrice
 void stampa_matrice(char **matrice) {
@@ -151,6 +231,3 @@ void deallocazione_matrice(char **matrice){
 
     free(matrice);
 }
-
-
-

@@ -36,14 +36,16 @@
 typedef struct client_args {
     pthread_t t_id;
     int sck;
-    // ...
-    // potrebbe essere utile un puntatore alla lista in cui è contenuto?
 } client_args;
 
 // funzione per il caricamento del dizionario nel trie
 void caricamento_dizionario(char *file_dizionario, Trie *radice);
 
-char *tempo_rimanente (int minuti);
+// funzione calcolo tempo
+char *tempo_rimanente(time_t tempo, int minuti);
+
+// funzione sorting per la classifica
+int sorting_classifica(const void *a, const void *b);
 
 // funzione dei thread che gestiscono i client
 void *thread_client (void *args);
@@ -53,19 +55,5 @@ void *gioco (void *args);
 
 // funzione del thread scorer
 void *scorer (void *arg);
-
-// funzione controllo nome utente
-int controllo_username (char *nome_utente);
-
-// funzione controllo validità parola
-int controllo_parola (char *parola);
-
-// funzione calcolo tempo
-
-// funzione sorting per la classifica
-int sorting_classifica(const void *a, const void *b);
-
-// funzione stampa della classifica
-void stampa_classifica(giocatore *head);
 
 void server (char *nome_server, int porta_server);

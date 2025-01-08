@@ -105,7 +105,7 @@ void inserisci_handler (lista_thread_handler *lista, pthread_t tid, pthread_t ti
 
 void rimuovi_handler (lista_thread_handler *lista, pthread_t tid);
 
-void invia_segnale (lista_thread_handler *lista, int segnale);
+void invia_sigusr1 (lista_thread_handler *lista, int segnale);
 
 
 // funzioni lista di giocatori
@@ -120,6 +120,8 @@ int cerca_giocatore (lista_giocatori *lista, char *nome_utente);
 char *recupera_username (lista_giocatori *lista, pthread_t tid_sigclient);
 
 int recupera_punteggio (lista_giocatori *lista, pthread_t tid_sigclient);
+
+int recupera_fd (lista_giocatori *lista, pthread_t tid);
 
 void resetta_punteggio (lista_giocatori *lista, pthread_t tid_sigclient);
 
