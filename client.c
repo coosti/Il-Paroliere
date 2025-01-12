@@ -54,12 +54,17 @@ void *invio_client (void *args) {
         char buffer[MAX_LUNGHEZZA_STDIN];
         ssize_t n_read;
 
-        SYSC(n_read, read(STDIN_FILENO, buffer, MAX_LUNGHEZZA_STDIN), "Errore nella lettura da STDIN");
+        SYSC(n_read, read(STDIN_FILENO, buffer, MAX_LUNGHEZZA_STDIN - 1), "Errore nella lettura da STDIN");
+        buffer[n_read] = '\0';
 
-        printf("%s", buffer);
+        buffer[strcspn(buffer, "\n")] = '\0';
+
+        printf("comando letto: %s \n", buffer);
 
         // variabile per il comando richiesto, grande quanto i byte effettivamente letti 
-        char *msg_stdin = (char*)malloc(n_read + 1);
+        char *msg_stdin;
+        SYSCN(msg_stdin, (char*)malloc(n_read + 1), "Errore nella malloc");
+
         strncpy(msg_stdin, buffer, n_read);
         msg_stdin[n_read] = '\0';
 
@@ -67,10 +72,14 @@ void *invio_client (void *args) {
         char *comando = strtok(msg_stdin, " ");
         char *argomento = strtok(NULL, " ");
 
+        printf("comando: %s \n", comando);
+        printf("argomento: %s \n", argomento);
+
         // if con tutti i casi
         if (strcmp(comando, "aiuto") == 0 && argomento == NULL) {
             stampa_comandi();
             free(msg_stdin);
+            continue;
         }
         else if (strcmp(comando, "registra_utente") == 0) {
             // prima di inviare il messaggio, controllare la validità del nome utente
@@ -97,6 +106,9 @@ void *invio_client (void *args) {
                         "%s \n", PAROLIERE);
             }
             else {
+
+                printf("nome utente valido! %s \n", argomento);
+
                 // se il nome utente è valido invio il messaggio con l'username
                 prepara_msg(fd_c, MSG_REGISTRA_UTENTE, argomento);
 
@@ -110,6 +122,7 @@ void *invio_client (void *args) {
         }
         else if (strcmp(comando, "msg") == 0) {
             // prima di inviare il messaggio, controllarne la lunghezza
+            // CONTROLLA!!!!!!!!
             if (argomento == NULL) {
                 comando_non_valido();
                 continue;
@@ -164,7 +177,7 @@ void *invio_client (void *args) {
             // comunicare al server che il client si sta chiudendo
             prepara_msg(fd_c, MSG_CLIENT_SHUTDOWN, NULL);
 
-
+            // chiudi
 
             free(msg_stdin);
 
@@ -174,6 +187,8 @@ void *invio_client (void *args) {
             // è stato inserito un comando non valido
             comando_non_valido();
         }
+
+        memset(buffer, 0, MAX_LUNGHEZZA_STDIN);
     }
 
     return NULL;
@@ -191,33 +206,34 @@ void *ricezione_client (void *args) {
     while (1) {
         Msg_Socket *risposta = ricezione_msg(fd_c);
 
-        if (risposta->data == NULL) {
+        if (risposta -> data == NULL) {
             // se non si riceve nulla, continuare ad attendere
             continue;
         }
-        if (risposta->type == MSG_OK) {
+        if (risposta -> type == MSG_OK) {
             printf("%s \n", risposta->data);
         }
-        else if (risposta->type == MSG_ERR) {
+        else if (risposta -> type == MSG_ERR) {
             printf("%s\n", risposta->data);
         }
-        else if (risposta->type == MSG_MATRICE) {
+        else if (risposta -> type == MSG_MATRICE) {
             // stampa della matrice
+            printf("Matrice di gioco: \n");
             stampa_matrice_stringa(risposta->data);
         }
-        else if (risposta->type == MSG_TEMPO_PARTITA) {
+        else if (risposta -> type == MSG_TEMPO_PARTITA) {
             // stampa del tempo rimanente
-            printf("Mancano %s minuti alla fine della partita \n", risposta->data);
+            printf("Mancano %s secondi alla fine della partita \n", risposta->data);
         }
-        else if (risposta->type == MSG_TEMPO_ATTESA) {
+        else if (risposta -> type == MSG_TEMPO_ATTESA) {
             // stampa del tempo della pausa
-            printf("Mancano %s minuti all'inizio della partita \n", risposta->data);
+            printf("Mancano %s secondi all'inizio della partita \n", risposta->data);
         }
-        else if (risposta->type == MSG_PUNTI_PAROLA) {
+        else if (risposta -> type == MSG_PUNTI_PAROLA) {
             // stampa punteggio parola -> funzione ????
             printf("Hai ottenuto %s punti \n", risposta->data);
         }
-        else if (risposta->type == MSG_PUNTI_FINALI) {
+        else if (risposta -> type == MSG_PUNTI_FINALI) {
             // stampa della classifica
             int i = 0;
 
@@ -233,11 +249,17 @@ void *ricezione_client (void *args) {
             }
             
         }
-        else if (risposta->type == MSG_SHOW_BACHECA) {
-            // stampa della bacheca
-            printf("%s \n", risposta->data);
+        else if (risposta -> type == MSG_SHOW_BACHECA) {
+            if (risposta -> length == 0) {
+                printf("Bacheca vuota! \n");
+            }
+            else {
+                printf("Bacheca messaggi: \n");
+                // stampa della bacheca
+                printf("%s \n", risposta->data);
+            }
         }
-        else if (risposta->type == MSG_SERVER_SHUTDOWN) {
+        else if (risposta -> type == MSG_SERVER_SHUTDOWN) {
             // il server si sta chiudendo, devo chiudere anche io client
             
         }
@@ -283,8 +305,8 @@ int main(int argc, char *ARGV[]) {
     client(nome_server, porta_server);
 
     // prompt e display dei comandi
-    char *msg = "Benvenuto!";
-    SYSC(ret, write(STDOUT_FILENO, msg, strlen(PAROLIERE)), "Errore nella write");
+    char *msg = "Benvenuto! \n";
+    SYSC(ret, write(STDOUT_FILENO, msg, strlen(msg)), "Errore nella write");
 
     // allocazione spazio per la struct per i thread invio e ricezione
     SYSCN(comunicazione, (thread_args *)malloc(NUM_THREAD*sizeof(thread_args)), "Errore nella malloc");

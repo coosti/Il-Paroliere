@@ -21,22 +21,22 @@
 // implementazione delle funzioni per richieste e risposte nella forma corretta
 
 void stampa_comandi() {
-    printf("\n ------ comandi disponibili ------ \n"
-            "aiuto - richiedere i comandi disponibili \n"
-            "registra_utente <nome_utente> - registrazione al gioco \n"
-            "matrice - richiedere la matrice corrente e il tempo\n"
-            "msg <testo> - postare un messaggio sulla bacheca \n"
-            "show_msg - stampa della bacheca \n"
-            "p <parola> - proporre una parola \n"
-            "classifica - richiedere la classifica \n"
-            "fine - uscire dal gioco \n"
-            "---------------------------------- \n");
+    printf("\ncomandi disponibili: \n"
+            "\t aiuto - richiedere i comandi disponibili \n"
+            "\t registra_utente <nome_utente> - registrazione al gioco \n"
+            "\t matrice - richiedere la matrice corrente e il tempo\n"
+            "\t msg <testo> - postare un messaggio sulla bacheca \n"
+            "\t show_msg - stampa della bacheca \n"
+            "\t p <parola> - proporre una parola \n"
+            "\t classifica - richiedere la classifica \n"
+            "\t fine - uscire dal gioco \n"
+            "\n");
 }
 
 void comando_non_valido() {
     printf("richiesta non valida! \n"
             "per visualizzare i comandi, digitare 'aiuto' \n"
-            "[PROMPT PAROLIERE] --> \n");
+            "[PROMPT PAROLIERE] -->  \n");
 }
 
 int controllo_lunghezza_max (char *argomento, int max_lunghezza) {
@@ -55,7 +55,7 @@ int controllo_lunghezza_min (char *argomento, int min_lunghezza) {
 
 int username_valido(char *nome_utente) {
     while (*nome_utente) {
-        if (!isalnum(*nome_utente) || !islower(*nome_utente)) {
+        if (!isalnum(*nome_utente) && !islower(*nome_utente)) {
             return 0;
         }
         nome_utente++;
@@ -71,11 +71,12 @@ void prepara_msg(int fd, char type, char *m) {
     risposta.type = type;
     if (m == NULL) {
         risposta.length = 0;
+        risposta.data = NULL;
     }
     else {
         risposta.length = strlen(m);
 
-        risposta.data = (char*)malloc(risposta.length + 1);
+        SYSCN(risposta.data, (char*)malloc(risposta.length + 1), "Errore nell'allocazione del campo data");
         strncpy(risposta.data, m, risposta.length);
         risposta.data[risposta.length] = '\0';
     }
@@ -88,10 +89,16 @@ void prepara_msg(int fd, char type, char *m) {
     risposta.length = 0;
 }
 
-// funzione di invio
+// funzione di invio -> fin qui nessun problema
 void invio_msg(int fd, Msg_Socket *msg) {
     int ret;
     // riprendere i campi da msg
+
+    /*printf("tipo messaggio (shared.c): %c \n", msg->type);
+
+    printf("lunghezza messaggio (shared.c): %d \n", msg->length);
+
+    printf("messaggio (shared.c): %s \n", msg->data);*/
 
     // invio del carattere che indica il tipo del messaggio
     SYSC(ret, write(fd, &msg->type, sizeof(char)), "Errore nella write del tipo di messaggio");
@@ -100,41 +107,37 @@ void invio_msg(int fd, Msg_Socket *msg) {
     SYSC(ret, write(fd, &msg->length, sizeof(int)), "Errore nella write della lunghezza del messaggio");
 
     // invio del messaggio
-    SYSC(ret, write(fd, &msg->data, msg->length), "Errore nella write del messaggio");
+    if (msg->length > 0 && msg->data != NULL) {
+        SYSC(ret, write(fd, msg->data, msg->length), "Errore nella write del messaggio");
+    }
 
     return;
 }
 
 // funzione di ricezione
-Msg_Socket* ricezione_msg(int fd) {
+Msg_Socket *ricezione_msg(int fd) {
     ssize_t n_read;
     char t;
     int l;
 
     // allocazione della struct per il messaggio (per restituirne il puntatore)
-    Msg_Socket *msg = (Msg_Socket*)malloc(sizeof(Msg_Socket));
-    if (msg == NULL) {
-        perror("Errore nell'allocazione della struct per la risposta");
-        exit(EXIT_FAILURE);
-    }
+    Msg_Socket *msg;    
+    SYSCN(msg, (Msg_Socket*)malloc(sizeof(Msg_Socket)), "Errore nella malloc del messaggio");
+
+    memset(msg, 0, sizeof(Msg_Socket));
 
     // lettura del carattere che indica il tipo del messaggio
-    SYSC(n_read, read(fd, &t, sizeof(char)), "Errore nella read del tipo di messaggio");
+    SYSC(n_read, read(fd, &t, sizeof(t)), "Errore nella read del tipo di messaggio");
     msg->type = t;
 
     // lettura della lunghezza del messaggio
-    SYSC(n_read, read(fd, &l, sizeof(int)), "Errore nella read della lunghezza del messaggio");
+    SYSC(n_read, read(fd, &l, sizeof(l)), "Errore nella read della lunghezza del messaggio");
     msg->length = l;
 
-    if (l > 0) {(
+    if (l > 0) {
         // se la lunghezza del messaggio è maggiore di 0 si alloca il campo data grande esattamente quanto specificato
-        // (si aggiunge +1 per il terminatore della stringa)
-        msg->data = (char*)malloc(l + 1));
-        if (msg->data == NULL) {
-            perror("Errore nell'allocazione del campo data");
-            free(msg);
-            exit(EXIT_FAILURE);
-        }
+        // (+1 per il terminatore della stringa)
+        SYSCN(msg->data, (char*)malloc(l + 1), "Errore nell'allocazione del campo data");
 
         // lettura del messaggio
         SYSC(n_read, read(fd, msg->data, l), "Errore nella read del messaggio");

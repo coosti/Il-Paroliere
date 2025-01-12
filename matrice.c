@@ -105,12 +105,12 @@ void inizializzazione_matrice(char **matrice, char *file_matrice){
 }
 
 // funzione ausiliaria ricorsiva
-int ricerca_parola (char **matrice, char *parola, int i_riga, int j_colonna, int r[], int c[], int pos, int length, int visitata[MAX_CASELLE][MAX_CASELLE]) {
+int ricerca_parola (char **matrice, char *parola, int i_riga, int j_colonna, int r[], int c[], int p, int length, int visitata[MAX_CASELLE][MAX_CASELLE]) {
     
     // casi base
 
     // se l'indice corrisponde con la lunghezza della parola -> trovata
-    if (pos == length) {
+    if (p == length) {
         return 1;
     }
 
@@ -125,7 +125,7 @@ int ricerca_parola (char **matrice, char *parola, int i_riga, int j_colonna, int
     }
 
     // se la lettera della casella non corrisponde al carattere della parola
-    if (matrice[i_riga][j_colonna] != parola[pos]) {
+    if (matrice[i_riga][j_colonna] != parola[p]) {
         return 0;
     }
 
@@ -142,7 +142,7 @@ int ricerca_parola (char **matrice, char *parola, int i_riga, int j_colonna, int
         int y = j_colonna + c[i];
 
         // se la ricerca in quella direzione ha avuto successo -> trovata
-        if (ricerca_parola(matrice, parola, x, y, r, c, pos + 1, length, visitata)) {
+        if (ricerca_parola(matrice, parola, x, y, r, c, p + 1, length, visitata)) {
             return 1;
         }
     }
@@ -199,27 +199,39 @@ void stampa_matrice(char **matrice) {
 
 // stampa della matrice da MSG_MATRICE
 void stampa_matrice_stringa (char *matrice) {
+    int k = 0;
+
     for (int i = 0; i < MAX_CASELLE; i++) {
         for (int j = 0; j < MAX_CASELLE; j++) {
-            // per ottenere l'indice del carattere corretto 
-            // si moltiplica l'indice della riga al numero massimo di caselle (4)
-            // e si somma l'indice della colonna
-            if (matrice[i * MAX_CASELLE + j] == 'q')
+            // togliere gli spazi dalla stringa
+            while (matrice[k] == ' ') {
+                k++;
+            }
+
+            // se si trova q, sostituire con Qu
+            if (matrice[k] == 'q') {
                 printf(" %s ", "Qu");
-            else
-                printf(" %c ", toupper(matrice[i * MAX_CASELLE + j]));
+            }
+            else {
+                printf(" %c ", toupper(matrice[k]));
+            }
+
+            k++;
         }
         printf("\n");
     }
 }
 
 char *matrice_a_stringa(char **matrice, char *stringa) {
+    int k = 0;
+
     for (int i = 0; i < MAX_CASELLE; i++) {
         for (int j = 0; j < MAX_CASELLE; j++) {
-            stringa[i * MAX_CASELLE + j] = matrice[i][j];
+            stringa[k++] = matrice[i][j];
+            stringa[k++] = ' ';
         }
     }
-    stringa[pos] = '\0';
+    stringa[k - 1] = '\0';
 
     return stringa;
 }

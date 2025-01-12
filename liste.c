@@ -270,8 +270,6 @@ giocatore *inserisci_giocatore (lista_giocatori *lista, char *nome_utente, int f
 
     lista -> head = g;
 
-    lista -> num_giocatori++;
-
     return g;
 }
 
