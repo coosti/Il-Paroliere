@@ -16,6 +16,10 @@
 #include <arpa/inet.h>
 
 #include "header/client.h"
+#include "header/macros.h"
+#include "header/shared.h"
+#include "header/bacheca.h"
+#include "header/matrice.h"
 
 // variabili globali
 
@@ -25,7 +29,13 @@ thread_args *comunicazione;
 
 char *PAROLIERE = "[PROMPT PAROLIERE] --> ";
 
-// implementare il gestore dei segnali
+// implementare il gestore dei segnali(
+void sigint_handler (int sig) {
+    // ricezione di sigint da tastiera
+
+}
+
+
 
 // alla chiusura ricordati di liberare struct comunicazione
 
@@ -33,7 +43,6 @@ char *PAROLIERE = "[PROMPT PAROLIERE] --> ";
 // thread per leggere comandi da tastiera e inviarli al server
 // SERVIREBBE UNA LOCK ?????
 void *invio_client (void *args) {
-    int ret;
 
     // dagli argomenti recuperare il descrittore del socket
     thread_args *param = (thread_args *)args;
@@ -46,6 +55,8 @@ void *invio_client (void *args) {
         ssize_t n_read;
 
         SYSC(n_read, read(STDIN_FILENO, buffer, MAX_LUNGHEZZA_STDIN), "Errore nella lettura da STDIN");
+
+        printf("%s", buffer);
 
         // variabile per il comando richiesto, grande quanto i byte effettivamente letti 
         char *msg_stdin = (char*)malloc(n_read + 1);
@@ -150,7 +161,10 @@ void *invio_client (void *args) {
             free(msg_stdin);
         }
         else if (strcmp(comando, "fine") == 0) {
+            // comunicare al server che il client si sta chiudendo
             prepara_msg(fd_c, MSG_CLIENT_SHUTDOWN, NULL);
+
+
 
             free(msg_stdin);
 
@@ -167,7 +181,6 @@ void *invio_client (void *args) {
 
 // thread per ricevere messaggi dal server
 void *ricezione_client (void *args) {
-    int ret;
 
     // dagli argomenti recuperare il descrittore del socket
     thread_args *param = (thread_args*)args;
@@ -225,7 +238,8 @@ void *ricezione_client (void *args) {
             printf("%s \n", risposta->data);
         }
         else if (risposta->type == MSG_SERVER_SHUTDOWN) {
-            printf("%s \n", risposta->data); 
+            // il server si sta chiudendo, devo chiudere anche io client
+            
         }
 
         // se la risposta non è valida, la ignoro
@@ -252,11 +266,10 @@ void client (char* nome_server, int porta_server) {
 }
 
 int main(int argc, char *ARGV[]) {
+    int ret;
 
     char *nome_server;
     int porta_server;
-
-    int ret;
 
     if (argc != 3) {
         printf("Errore! Parametri: %s nome_server porta_server \n", ARGV[0]);
@@ -270,6 +283,8 @@ int main(int argc, char *ARGV[]) {
     client(nome_server, porta_server);
 
     // prompt e display dei comandi
+    char *msg = "Benvenuto!";
+    SYSC(ret, write(STDOUT_FILENO, msg, strlen(PAROLIERE)), "Errore nella write");
 
     // allocazione spazio per la struct per i thread invio e ricezione
     SYSCN(comunicazione, (thread_args *)malloc(NUM_THREAD*sizeof(thread_args)), "Errore nella malloc");

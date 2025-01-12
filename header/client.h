@@ -14,11 +14,6 @@
 #include <arpa/inet.h>
 #include <sys/stat.h>
 
-#include "macros.h"
-#include "shared.h"
-#include "bacheca.h"
-#include "matrice.h"
-
 #define NUM_THREAD 2
 
 #define MAX_LUNGHEZZA_STDIN 256

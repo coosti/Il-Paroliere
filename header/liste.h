@@ -37,7 +37,6 @@ typedef struct thread_handler {
 // lista thread handler
 typedef struct {
     thread_handler *head;
-    int num_thread;
 } lista_thread_handler;
 
 // lista parole trovate da un giocatore
@@ -80,6 +79,7 @@ typedef struct risultato {
 typedef struct coda_risultati {
     risultato *head;
     risultato *tail;
+    int num_risultati;
 } coda_risultati;
 
 typedef struct {
@@ -98,12 +98,16 @@ void rimuovi_thread (lista_thread *lista, pthread_t tid);
 
 void svuota_lista_thread (lista_thread *lista);
 
+void invia_sigusr2 (lista_thread *lista, int segnale);
+
 // funzioni lista di handler
 void inizializza_lista_handler (lista_thread_handler **lista);
 
 void inserisci_handler (lista_thread_handler *lista, pthread_t tid, pthread_t tid_client);
 
 void rimuovi_handler (lista_thread_handler *lista, pthread_t tid);
+
+void svuota_lista_handler (lista_thread_handler *lista);
 
 void invia_sigusr1 (lista_thread_handler *lista, int segnale);
 
@@ -123,11 +127,11 @@ int recupera_punteggio (lista_giocatori *lista, pthread_t tid_sigclient);
 
 int recupera_fd (lista_giocatori *lista, pthread_t tid);
 
+int recupera_fd_2 (lista_giocatori *lista, pthread_t tid);
+
 void resetta_punteggio (lista_giocatori *lista, pthread_t tid_sigclient);
 
 void svuota_lista_giocatori (lista_giocatori *lista);
-
-void invia_sigusr2 (lista_giocatori *lista, int segnale);
 
 
 // funzioni lista parole
@@ -146,4 +150,6 @@ void inizializza_coda_risultati (coda_risultati **coda);
 void inserisci_risultato (coda_risultati *coda, char *username, int punteggio);
 
 risultato *leggi_risultato (coda_risultati *coda);
+
+void svuota_coda_risultati (coda_risultati *coda);
 

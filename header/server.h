@@ -15,13 +15,6 @@
 #include <arpa/inet.h>
 #include <sys/stat.h>
 
-#include "macros.h"
-#include "trie.h"
-#include "shared.h"
-#include "liste.h"
-#include "bacheca.h"
-#include "matrice.h"
-
 // costanti
 
 #define N 256
@@ -38,8 +31,13 @@ typedef struct client_args {
     int sck;
 } client_args;
 
-// funzione per il caricamento del dizionario nel trie
-void caricamento_dizionario(char *file_dizionario, Trie *radice);
+void *sigint_handler (void *args);
+
+void *sigclient_handler (void *args);
+
+void sigalrm_handler (int sig);
+
+void sigusr2_handler (int sig);
 
 // funzione calcolo tempo
 char *tempo_rimanente(time_t tempo, int minuti);

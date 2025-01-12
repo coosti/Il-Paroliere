@@ -134,7 +134,6 @@ void inizializza_lista_handler (lista_thread_handler **lista) {
     }
 
     (*lista) -> head = NULL;
-    (*lista) -> num_thread = 0;
 }
 
 void inserisci_handler (lista_thread_handler *lista, pthread_t tid, pthread_t tid_client) {
@@ -152,8 +151,6 @@ void inserisci_handler (lista_thread_handler *lista, pthread_t tid, pthread_t ti
     thd -> next = lista -> head;
 
     lista -> head = thd;
-
-    lista -> num_thread++;
 }
 
 void rimuovi_handler (lista_thread_handler *lista, pthread_t tid) {
@@ -170,31 +167,40 @@ void rimuovi_handler (lista_thread_handler *lista, pthread_t tid) {
         tmp -> next = NULL;
 
         free(tmp);
-        lista -> num_thread--;
         return;
     }
     else {
-        int i = 0;
-
-        while (tmp != NULL && i < lista -> num_thread) {
+        while (tmp != NULL) {
             if (tmp -> t_id == tid) {
                 prev -> next = tmp -> next;
                 
                 tmp -> next = NULL;
 
                 free(tmp);
-                lista -> num_thread--;
                 return;
             }
 
             prev = tmp;
 
             tmp = tmp -> next;
-
-            i++;
         }
         return;
     }
+}
+
+void svuota_lista_handler (lista_thread_handler *lista) {
+    thread_handler *tmp = lista -> head;
+    thread_handler *nxt = NULL;
+
+    while (tmp != NULL) {
+        nxt = tmp -> next;
+
+        free(tmp);
+
+        tmp = nxt;
+    }
+
+    lista -> head = NULL;
 }
 
 void invia_sigusr1 (lista_thread_handler *lista, int segnale) {
@@ -312,7 +318,7 @@ int recupera_punteggio (lista_giocatori *lista, pthread_t tid) {
     giocatore *tmp = lista -> head;
     
     if (tmp == NULL) {
-        return NULL;
+        return -1;
     }
 
     while (tmp != NULL) {
@@ -334,6 +340,23 @@ int recupera_fd (lista_giocatori *lista, pthread_t tid) {
 
     while (tmp != NULL) {
         if (tmp -> t_id == tid) {
+            return tmp -> fd_c;
+        }
+        tmp = tmp -> next;
+    }
+
+    return -1;
+}
+
+int recupera_fd_2 (lista_giocatori *lista, pthread_t tid) {
+    giocatore *tmp = lista -> head;
+
+    if (tmp == NULL) {
+        return -1;
+    }
+
+    while (tmp != NULL) {
+        if (tmp -> tid_sigclient == tid) {
             return tmp -> fd_c;
         }
         tmp = tmp -> next;
@@ -456,7 +479,7 @@ void inserisci_parola (lista_parole *lista, char *parola, int punti) {
         exit(EXIT_FAILURE);
     }
     strncpy(p -> parola, parola, strlen(parola));
-    parola[strlen(parola)] = '\0';
+    p -> parola[strlen(parola)] = '\0';
 
     p -> punti = punti;
 
@@ -510,11 +533,9 @@ void svuota_lista_parole (lista_parole *lista) {
 
     lista -> head = NULL;
     lista -> num_parole = 0;
-
-    free(lista);
 }
 
-void *inizializza_codarisultati (coda_risultati **coda) {
+void inizializza_codarisultati (coda_risultati **coda) {
     *coda = (coda_risultati*)malloc(sizeof(coda_risultati));
     if (coda == NULL) {
         perror("Errore nell'allocazione della coda dei risultati");
@@ -550,18 +571,22 @@ void inserisci_risultato (coda_risultati *coda, char *username, int punteggio) {
     if (coda -> head == NULL) {
         coda -> head = r;
         coda -> tail = r;
+
+        coda -> num_risultati++;
     }
     else {
         // se la coda non è vuota, si aggiorna il riferimento next della coda con il nuovo elemento
         coda -> tail -> next = r;
         coda -> tail = r;
+
+        coda -> num_risultati++;
     }
 }
 
 // rimozione in testa
 risultato *leggi_risultato (coda_risultati *coda) {
     // controllare che non sia vuota
-    if (coda -> head = NULL) {
+    if (coda -> head == NULL) {
         return NULL;
     }
 
@@ -584,4 +609,21 @@ risultato *leggi_risultato (coda_risultati *coda) {
     tmp -> next = NULL;
 
     return tmp;
+}
+
+void svuota_coda_risultati (coda_risultati *coda) {
+    risultato *tmp = coda -> head;
+    risultato *nxt = NULL;
+
+    while (tmp != NULL) {
+        nxt = tmp -> next;
+
+        free(tmp -> username);
+        free(tmp);
+
+        tmp = nxt;
+    }
+
+    coda -> head = NULL;
+    coda -> tail = NULL;
 }

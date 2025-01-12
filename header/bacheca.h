@@ -31,5 +31,8 @@ void inserimento_bacheca(Messaggio bacheca [], char *username, char *msg, int *n
 // stampa della bacheca
 void stampa_bacheca(Messaggio bacheca[], int *num_msg);
 
+// da bacheca a stringa
+char *bacheca_a_stringa(Messaggio bacheca[], int *num_msg);
+
 // deallocazione bacheca
 void deallocazione_bacheca(Messaggio bacheca[], int *num_msg);

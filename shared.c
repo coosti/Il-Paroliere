@@ -16,6 +16,7 @@
 #include <arpa/inet.h>
 
 #include "header/shared.h"
+#include "header/macros.h"
 
 // implementazione delle funzioni per richieste e risposte nella forma corretta
 
@@ -35,7 +36,7 @@ void stampa_comandi() {
 void comando_non_valido() {
     printf("richiesta non valida! \n"
             "per visualizzare i comandi, digitare 'aiuto' \n"
-            "%s \n", PAROLIERE);
+            "[PROMPT PAROLIERE] --> \n");
 }
 
 int controllo_lunghezza_max (char *argomento, int max_lunghezza) {

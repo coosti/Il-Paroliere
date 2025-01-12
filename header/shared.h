@@ -16,8 +16,6 @@
 #include <arpa/inet.h>
 #include <sys/stat.h>
 
-#include "macros.h"
-
 // messaggi
 #define MSG_OK 'K'
 #define MSG_ERR 'E'
@@ -38,8 +36,6 @@
 
 #define MIN_LUNGHEZZA_PAROLA 4
 
-char *PAROLIERE;
-
 typedef struct {
     char type;
     unsigned int length;
@@ -54,9 +50,11 @@ int controllo_lunghezza_max (char *argomento, int max_lunghezza);
 
 int controllo_lunghezza_min (char *argomento, int min_lunghezza);
 
-int username_valido(char *nome_utente);
+int username_valido (char *nome_utente);
 
-void invio_msg(int fd, Msg_Socket *msg);
+void prepara_msg (int fd, char type, char *data);
 
-Msg_Socket* ricezione_msg(int fd);
+void invio_msg (int fd, Msg_Socket *msg);
+
+Msg_Socket* ricezione_msg (int fd);
 

@@ -14,8 +14,6 @@
 
 #define MAX_CASELLE 4
 
-static long pos;
-
 char** allocazione_matrice();
 
 void matrice_casuale(char **matrice);
@@ -27,6 +25,10 @@ int ricerca_parola(char **matrice, char *parola, int i_riga, int j_colonna, int 
 int ricerca_matrice(char **matrice, char *parola);
 
 void stampa_matrice(char **matrice);
+
+void stampa_matrice_stringa (char *matrice);
+
+char *matrice_a_stringa(char **matrice, char *stringa);
 
 void deallocazione_matrice(char **matrice);
 
