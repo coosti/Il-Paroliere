@@ -207,7 +207,10 @@ void invia_sigusr1 (lista_thread_handler *lista, int segnale) {
     thread_handler *tmp = lista -> head;
 
     while (tmp != NULL) {
-        pthread_kill(tmp -> t_id, segnale);
+        SYST(pthread_kill(tmp -> t_id, segnale));
+
+        printf("segnale inviato \n");
+
         tmp = tmp -> next;
     }
 }
@@ -216,8 +219,8 @@ void invia_sigusr2 (lista_thread *lista, int segnale) {
     thread_attivo *tmp = lista -> head;
 
     while (tmp != NULL) {
-        pthread_kill(tmp -> t_id, segnale);
-        
+        SYST(pthread_kill(tmp -> t_id, segnale));
+
         tmp = tmp -> next;
     }
 }

@@ -239,19 +239,24 @@ void *sigint_handler (void *args) {
 // thread per la gestione dei segnale per i client 
 // produttori sulla variabile per le chiusure e sulla coda dei punteggi
 void *sigclient_handler (void *args) {
-    sigset_t* set = (sigset_t*)args;
+    sigset_t *set = (sigset_t*)args;
 
     int sig;
+
+    printf("ciao ci sono! %ld \n", pthread_self());
+    fflush(stdout);
 
     // sblocco del segnale nel thread
     SYST(pthread_sigmask(SIG_UNBLOCK, set, NULL));
 
     while (1) {
+        printf("aspettando ... \n");
+        fflush(stdout);
         SYST(sigwait(set, &sig));
 
         if (sig == SIGINT) {
             // creazione del thread per gestire SIGINT
-            sigset_t set;
+            /*sigset_t set;
             sigemptyset(&set);
             sigaddset(&set, SIGINT);
 
@@ -282,13 +287,17 @@ void *sigclient_handler (void *args) {
 
             // il thread ha finito ciò che doveva fare -> terminazione
             pthread_exit(NULL);
+            break;*/
         }
         else if (sig == SIGUSR1) {
             // alla ricezione del segnale, il thread deve mettere il punteggio del giocatore sulla coda condivisa
             
+            printf("ciao ricevuto SIGUSR1!!!!! \n");
+            fflush(stdout);
+
             // recuperare username e punteggio dalla lista dei giocatori tramite il tid del thread
             // viene acquisita la mutex sulla lista giocatori
-            pthread_mutex_lock(&giocatori_mtx);
+            /*pthread_mutex_lock(&giocatori_mtx);
 
             char *username = recupera_username(Giocatori, pthread_self());
             int punteggio = recupera_punteggio(Giocatori, pthread_self());
@@ -309,10 +318,11 @@ void *sigclient_handler (void *args) {
             pthread_cond_signal(&scorer_cond);
 
             // rilascio della mutex
-            pthread_mutex_unlock(&scorer_mtx);
+            pthread_mutex_unlock(&scorer_mtx);*/
         }
     }
 
+    free(set);
     return NULL;
 }
 
@@ -328,11 +338,13 @@ void sigalrm_handler (int sig) {
         printf("GIOCO FINITOOOOO!!! \n");
 
         // invio del segnale ai thread handler
-        /*if (Threads -> num_thread > 0) {
+        if (Threads -> num_thread > 0) {
             pthread_mutex_lock(&handler_mtx);
             invia_sigusr1(Thread_Handler, SIGUSR1);
             pthread_mutex_unlock(&handler_mtx);
-        }*/
+        }
+
+        printf("Segnali inviati \n");
 
         // avviso lo scorer per farlo risvegliare
         /*pthread_mutex_lock(&scorer_mtx);
@@ -352,11 +364,11 @@ void sigalrm_handler (int sig) {
 void sigusr2_handler (int sig) {
     // invio della classifica al client associato
     if (sig == SIGUSR2) {
-        pthread_mutex_lock(&giocatori_mtx);
+        /*pthread_mutex_lock(&giocatori_mtx);
         int fd_c = recupera_fd(Giocatori, pthread_self());
         pthread_mutex_unlock(&giocatori_mtx);
 
-        prepara_msg(fd_c, MSG_PUNTI_FINALI, classifica);
+        prepara_msg(fd_c, MSG_PUNTI_FINALI, classifica);*/
     }
 }
 
@@ -415,6 +427,15 @@ void *thread_client (void *args) {
     client_args *params = (client_args*)args;
     int fd_c = params -> sck;
 
+    sigset_t set_client;
+    sigemptyset(&set_client);
+
+    // Aggiungere SIGUSR2 alla maschera
+    sigaddset(&set_client, SIGUSR2);
+
+    // Sbloccare SIGUSR2 per thread_client
+    SYST(pthread_sigmask(SIG_UNBLOCK, &set_client, NULL));
+
     // giocatore associato al thread
     giocatore *player = NULL;
 
@@ -424,16 +445,6 @@ void *thread_client (void *args) {
     Msg_Socket *richiesta = NULL;
 
     char *tempo = NULL;
-
-    // maschera dei segnali da dare al thread sigclient_handler
-    sigset_t set;
-    sigemptyset(&set);
-
-    // aggiungere SIGINT e SIGUSR1 alla maschera
-    sigaddset(&set, SIGINT);
-    sigaddset(&set, SIGUSR1);
-    // blocco SIGUSR1 per thread_client, viene sbloccato successivamente nel thread handler
-    SYST(pthread_sigmask(SIG_BLOCK, &set, NULL));
 
     // alloco una stringa per la matrice
     // (*2 per lo spazio tra le lettere)
@@ -539,9 +550,17 @@ void *thread_client (void *args) {
         free(richiesta);
     }
 
+    // maschera dei segnali da dare al thread sigclient_handler
+    sigset_t *set = malloc(sizeof(sigset_t));
+    sigemptyset(set);
+
+    // aggiungere SIGINT e SIGUSR1 alla maschera
+    sigaddset(set, SIGINT);
+    sigaddset(set, SIGUSR1);
+
     // creazione del thread handler per i segnali
     pthread_t tid_sigclient;
-    SYST(pthread_create(&tid_sigclient, NULL, sigclient_handler, (void*)&set));
+    SYST(pthread_create(&tid_sigclient, NULL, sigclient_handler, (void*)set));
 
     // aggiunta del thread appena creato alla lista
     pthread_mutex_lock(&handler_mtx);
@@ -553,12 +572,15 @@ void *thread_client (void *args) {
     player -> tid_sigclient = tid_sigclient;
     pthread_mutex_unlock(&giocatori_mtx);
 
-    // per ripulire la maschera
-    sigemptyset(&set);
-
-    // ora si sblocca SIGUSR2 per thread_client
-    sigaddset(&set, SIGUSR2);
-    SYST(pthread_sigmask(SIG_UNBLOCK, &set, NULL));
+    // stampa lista thread handler
+        pthread_mutex_lock(&handler_mtx);
+            thread_handler *tmp_th = Thread_Handler -> head;
+            while (tmp_th != NULL) {
+                printf("thread handler: %ld \n", tmp_th -> t_id);
+                tmp_th = tmp_th -> next;
+            }
+            pthread_mutex_unlock(&handler_mtx);
+            free(tmp_th);
 
     // invio della matrice e del tempo
     // se è il primo ad entrare non gli viene inviata perché tanto gliela invierà il gioco appena entrerà ?????
@@ -780,8 +802,7 @@ void *gioco (void *args) {
                 printf("risvegliato \n");
             }   
         }
-
-        printf("almeno un giocatore registrato \n");
+        
         pthread_mutex_unlock(&giocatori_mtx);
         
         // avvio del timer per la durata del gioco
@@ -842,8 +863,6 @@ void *gioco (void *args) {
         }
         printf("matrice inviata \n");
         pthread_mutex_unlock(&giocatori_mtx);
-
-        printf("giocando");
 
         sleep(durata_gioco * 60);
 
@@ -1087,6 +1106,14 @@ int main(int argc, char *ARGV[]) {
 
     // inizializzazione dei segnali
     inizializza_segnali();
+
+    sigset_t set;
+    sigemptyset(&set);
+    sigaddset(&set, SIGINT);
+    sigaddset(&set, SIGUSR1);
+
+    // blocco sigint e sigusr1 globalmente dato che sono gestiti dal thread apposito
+    SYST(pthread_sigmask(SIG_BLOCK, &set, NULL));
 
     // creazione del trie
     radice = nuovo_nodo();
