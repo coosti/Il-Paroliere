@@ -252,6 +252,7 @@ void sigint_handler (int sig) {
 
             while (t != NULL) {
                 prepara_msg(t -> fd_c, MSG_SERVER_SHUTDOWN, msg);
+                close(t -> fd_c);
                 SYST(pthread_cancel(t -> t_id));
                 t = t -> next;
             }

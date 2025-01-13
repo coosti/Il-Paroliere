@@ -74,6 +74,8 @@ void sigint_handler (int sig) {
     // eliminare thread ricezione
     SYST(pthread_cancel(comunicazione[1].t_id));
     
+    shutdown(fd_client, SHUT_RDWR);
+
     // chiusura del socket
     SYSC(ret, close(fd_client), "Errore nella chiusura del socket");
     
@@ -446,8 +448,6 @@ int main(int argc, char *ARGV[]) {
     // attesa thread
     SYST(pthread_join(comunicazione[0].t_id, NULL));
     SYST(pthread_join(comunicazione[1].t_id, NULL));
-
-    //SYSC(ret, close(fd_client), "Errore nella chiusura del socket");
 
     free(comunicazione);
 
