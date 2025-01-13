@@ -149,11 +149,10 @@ void inizializza_lista_giocatori (lista_giocatori **lista) {
 giocatore *inserisci_giocatore (lista_giocatori *lista, char *nome_utente, int fd) {
 
     // creazione dell'elemento del giocatore nella lista
-    giocatore *g = (giocatore*)malloc(sizeof(giocatore));
-    if (g == NULL) {
-        perror("Errore nell'allocazione del giocatore");
-        exit(EXIT_FAILURE);
-    }
+    giocatore *g;
+    SYSCN(g, (giocatore*)malloc(sizeof(giocatore)), "Errore nell'allocazione del giocatore");
+
+    memset(g, 0, sizeof(giocatore));
 
     // assegnazione del nome utente passato come parametro
     g -> username = (char*)malloc(strlen(nome_utente) + 1);
@@ -162,7 +161,7 @@ giocatore *inserisci_giocatore (lista_giocatori *lista, char *nome_utente, int f
         free(g);
         exit(EXIT_FAILURE);
     }
-    strncpy(g -> username, nome_utente, strlen(nome_utente));
+    strcpy(g -> username, nome_utente);
 
     // assegnazione del tid del thread
     g -> t_id = pthread_self();
@@ -216,7 +215,7 @@ char *recupera_username (lista_giocatori *lista, pthread_t tid) {
     }
 
     while (tmp != NULL) {
-        if (tmp -> tid_sigclient == tid) {
+        if (tmp -> t_id == tid) {
             return tmp -> username;
         }
         tmp = tmp -> next;        
@@ -233,7 +232,7 @@ int recupera_punteggio (lista_giocatori *lista, pthread_t tid) {
     }
 
     while (tmp != NULL) {
-        if (tmp -> tid_sigclient == tid) {
+        if (tmp -> t_id == tid) {
             return tmp -> punteggio;
         }
         tmp = tmp -> next;
@@ -251,23 +250,6 @@ int recupera_fd (lista_giocatori *lista, pthread_t tid) {
 
     while (tmp != NULL) {
         if (tmp -> t_id == tid) {
-            return tmp -> fd_c;
-        }
-        tmp = tmp -> next;
-    }
-
-    return -1;
-}
-
-int recupera_fd_2 (lista_giocatori *lista, pthread_t tid) {
-    giocatore *tmp = lista -> head;
-
-    if (tmp == NULL) {
-        return -1;
-    }
-
-    while (tmp != NULL) {
-        if (tmp -> tid_sigclient == tid) {
             return tmp -> fd_c;
         }
         tmp = tmp -> next;
@@ -446,15 +428,17 @@ void svuota_lista_parole (lista_parole *lista) {
     lista -> num_parole = 0;
 }
 
-void inizializza_codarisultati (coda_risultati **coda) {
+void inizializza_coda_risultati (coda_risultati **coda) {
     *coda = (coda_risultati*)malloc(sizeof(coda_risultati));
-    if (coda == NULL) {
+    if (*coda == NULL) {
         perror("Errore nell'allocazione della coda dei risultati");
         exit(EXIT_FAILURE);
     }
 
     (*coda) -> head = NULL;
     (*coda) -> tail = NULL;
+
+    (*coda) -> num_risultati = 0;
 }
 
 // inserimento in coda
@@ -465,32 +449,32 @@ void inserisci_risultato (coda_risultati *coda, char *username, int punteggio) {
         exit(EXIT_FAILURE);
     }
 
+    size_t len = strlen(username);
+
     // inizializzazione risultato
-    r -> username = (char*)malloc(strlen(username) + 1);
+    r -> username = (char*)malloc((len + 1) * sizeof(char));
     if (r -> username == NULL) {
         perror("Errore nell'allocazione del nome utente");
         free(r);
         exit(EXIT_FAILURE);
     }
-    strncpy(r -> username, username, strlen(username));
-    r -> username[strlen(username)] = '\0';
+    strncpy(r -> username, username, len);
+    r -> username[len] = '\0';
 
     r -> punteggio = punteggio;
+
+    r -> next = NULL;
 
     // inserimento in coda
     // se la coda è vuota il nuovo elemento è sia testa che coda
     if (coda -> head == NULL) {
         coda -> head = r;
         coda -> tail = r;
-
-        coda -> num_risultati++;
     }
     else {
         // se la coda non è vuota, si aggiorna il riferimento next della coda con il nuovo elemento
         coda -> tail -> next = r;
-        coda -> tail = r;
-
-        coda -> num_risultati++;
+        coda -> tail = r; 
     }
 }
 
@@ -520,6 +504,15 @@ risultato *leggi_risultato (coda_risultati *coda) {
     tmp -> next = NULL;
 
     return tmp;
+}
+
+void stampa_coda_risultati(coda_risultati *coda) {
+    risultato *current = coda->head;
+    printf("Numero di risultati: %d\n", coda->num_risultati);
+    while (current != NULL) {
+        printf("Username: %s, Punteggio: %d\n", current->username, current->punteggio);
+        current = current->next;
+    }
 }
 
 void svuota_coda_risultati (coda_risultati *coda) {

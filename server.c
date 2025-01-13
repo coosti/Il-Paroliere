@@ -62,7 +62,6 @@ int num_chiusure = 0;
 
 
 // strutture dati globali
-
 Trie *radice = NULL;
 
 Messaggio *bacheca;
@@ -76,9 +75,6 @@ lista_giocatori *Giocatori;
 
 coda_risultati *Punteggi;
 
-// array globale per memorizzare temporaneamente i dati della coda
-punteggi tmp[MAX_CLIENT];
-
 // classifica
 char classifica[MAX_DIM];
 
@@ -90,6 +86,8 @@ pthread_mutex_t parole_mtx;
 
 pthread_mutex_t scorer_mtx;
 
+pthread_mutex_t coda_mtx;
+
 pthread_mutex_t bacheca_mtx;
 
 pthread_mutex_t fase_mtx;
@@ -99,6 +97,7 @@ pthread_mutex_t sig_mtx;
 // condition variable
 pthread_cond_t giocatori_cond;
 pthread_cond_t scorer_cond;
+pthread_cond_t coda_cond;
 pthread_cond_t fase_cond;
 pthread_cond_t sig_cond;
 
@@ -257,7 +256,7 @@ void sigclient_handler (int sig) {
         pthread_mutex_lock(&giocatori_mtx);
 
         // recuperare il fd
-        int fd_c = recupera_fd_2(Giocatori, pthread_self());
+        int fd_c = recupera_fd(Giocatori, pthread_self());
 
         pthread_mutex_unlock(&giocatori_mtx);
 
@@ -287,6 +286,9 @@ void sigclient_handler (int sig) {
         char *username = recupera_username(Giocatori, pthread_self());
         int punteggio = recupera_punteggio(Giocatori, pthread_self());
 
+        printf("username: %s \n", username);
+        printf("punteggio: %d \n", punteggio);
+
         // resettare il punteggio del giocatore per prepararsi alla prossima partita
         resetta_punteggio(Giocatori, pthread_self());
 
@@ -294,16 +296,18 @@ void sigclient_handler (int sig) {
         pthread_mutex_unlock(&giocatori_mtx);
 
         // acquisizione della mutex sulla coda
-        pthread_mutex_lock(&scorer_mtx);
+        pthread_mutex_lock(&coda_mtx);
 
         // inserimento del punteggio nella coda
         inserisci_risultato(Punteggi, username, punteggio);
 
+        Punteggi -> num_risultati++;
+
         // lo scorer viene avvisato che è stato scritto un punteggio sulla coda
-        pthread_cond_signal(&scorer_cond);
+        pthread_cond_signal(&coda_cond);
 
         // rilascio della mutex
-        pthread_mutex_unlock(&scorer_mtx);
+        pthread_mutex_unlock(&coda_mtx);
     }
     else if (sig == SIGUSR2) {
         pthread_mutex_lock(&giocatori_mtx);
@@ -318,31 +322,30 @@ void sigclient_handler (int sig) {
 void sigalrm_handler (int sig) {
     // se è finita la partita, mettere il gioco in pausa
     // mandare il segnale SIGUSR1 a sigclient handler e allo scorer
+    pthread_mutex_lock(&fase_mtx);
     if (fase_gioco == 1) {
-        pthread_mutex_lock(&fase_mtx);
         fase_gioco = 0;
         pthread_mutex_unlock(&fase_mtx);
 
         printf("GIOCO FINITOOOOO!!! \n");
 
-        // invio del segnale ai thread handler
-        if (Threads -> num_thread > 0) {
-            pthread_mutex_lock(&handler_mtx);
-            invia_sigusr(Threads, SIGUSR1);
-            pthread_mutex_unlock(&handler_mtx);
-        }
-
-        printf("Segnali inviati \n");
-
-        // avviso lo scorer per farlo risvegliare
+        // avviso allo scorer per farlo risvegliare
         pthread_mutex_lock(&scorer_mtx);
         partita_finita = 1;
         pthread_cond_signal(&scorer_cond);
         pthread_mutex_unlock(&scorer_mtx);
+
+        // invio del segnale ai thread
+        if (Threads -> num_thread > 0) {
+            pthread_mutex_lock(&client_mtx);
+            invia_sigusr(Threads, SIGUSR1);
+            pthread_mutex_unlock(&client_mtx);
+        }
+
+        printf("Segnali inviati \n");
     }
     else {
         // se è finita la pausa, rimettere il gioco in corso
-        pthread_mutex_lock(&fase_mtx);
         fase_gioco = 1;
         pthread_cond_signal(&fase_cond);
         pthread_mutex_unlock(&fase_mtx);
@@ -433,7 +436,7 @@ void *thread_client (void *args) {
 
     printf("ciao sono thread client tid: %ld \n", pthread_self());
 
-    // tutto il processo di gestione del client viene eseguito fino a quando non si chiude il server
+    // tutto il processo di gestione del client viene eseguito fino a quando non si chiude il client stesso
     
     while (1) {
         // prima della registrazione, si accettano solo messaggi di registrazione e di fine
@@ -515,7 +518,7 @@ void *thread_client (void *args) {
             prepara_msg(fd_c, MSG_OK, msg);
             break;
         }
-        else if (richiesta -> data == NULL || richiesta -> type != MSG_REGISTRA_UTENTE || richiesta -> type != MSG_CLIENT_SHUTDOWN) {
+        else if (richiesta -> data == NULL && richiesta -> type != MSG_REGISTRA_UTENTE && richiesta -> type != MSG_CLIENT_SHUTDOWN) {
             // messaggio non valido
             char *msg = "Messaggio non valido";
             prepara_msg(fd_c, MSG_ERR, msg);
@@ -523,17 +526,20 @@ void *thread_client (void *args) {
         }
 
         // pulire le variabili appena utilizzate per lo scambio di messaggi di questa fase
-        free(richiesta -> data);
+        if (richiesta -> data) {
+            free(richiesta -> data);
+        }
         free(richiesta);
     }
 
     // invio della matrice e del tempo
-    // se è il primo ad entrare non gli viene inviata perché tanto gliela invierà il gioco appena entrerà ?????
     if (fase_gioco == 0) {
         // gioco in pausa -> invio del tempo di attesa
         tempo = tempo_rimanente(tempo_pausa, durata_pausa);
 
         prepara_msg(fd_c, MSG_TEMPO_ATTESA, tempo);
+
+        free(tempo);
     }
     else {
         // gioco in corso -> invio matrice e tempo rimanente
@@ -543,7 +549,9 @@ void *thread_client (void *args) {
 
         tempo = tempo_rimanente(tempo_gioco, durata_gioco);
 
-        prepara_msg(fd_c, MSG_TEMPO_PARTITA, tempo);  
+        prepara_msg(fd_c, MSG_TEMPO_PARTITA, tempo); 
+
+        free(tempo); 
     }
 
     // ciclo di ascolto durante il gioco
@@ -666,6 +674,8 @@ void *thread_client (void *args) {
             if (fase_gioco == 0) {
                 tempo = tempo_rimanente(tempo_pausa, durata_pausa);
                 prepara_msg(fd_c, MSG_TEMPO_ATTESA, tempo);
+
+                free(tempo);
                 continue;
             }
             else {
@@ -676,6 +686,8 @@ void *thread_client (void *args) {
                 tempo = tempo_rimanente(tempo_gioco, durata_gioco);
 
                 prepara_msg(fd_c, MSG_TEMPO_PARTITA, tempo);
+
+                free(tempo);
 
                 continue;
             }
@@ -717,14 +729,19 @@ void *thread_client (void *args) {
                 continue;
             }
         }
+        else if (richiesta == NULL) {
+            printf("Non è arrivato nulla \n");
+            break;
+        }
 
-        free(richiesta -> data);
+        if (richiesta -> data) {
+            free(richiesta -> data);
+        }
         free(richiesta);
     }
 
     free(matrice_strng);
     free(bacheca_strng);
-    free(tempo);
 
     return NULL;
 }
@@ -831,59 +848,88 @@ void *gioco (void *args) {
 // consumatore sulla coda punteggi
 // (anche consumatore sulla variabile partita_finita)
 void *scorer (void *args) {
-    // durante il gioco rimane in attesa con la condition variable
-    // si 'risveglia' quando scatta la pausa (impostata dal gioco)
-    pthread_mutex_lock(&scorer_mtx);
+    while (1) {
+        // pulizia della classifica
+        memset(classifica, 0, sizeof(classifica));
 
-    while (partita_finita == 0) {
-        pthread_cond_wait(&scorer_cond, &scorer_mtx);
-    }
-
-    partita_finita = 0;
-    pthread_mutex_unlock(&scorer_mtx);
-
-    printf("ciao sono lo scorer %ld \n", pthread_self());
-            
-    /*pthread_mutex_lock(&giocatori_mtx);
-    int n = Giocatori -> num_giocatori;
-    pthread_mutex_unlock(&giocatori_mtx);
-
-    for (int i = 0; i < n; i++) {
+        // durante il gioco rimane in attesa con la condition variable
+        // si 'risveglia' quando scatta la pausa (impostata dal gioco)
         pthread_mutex_lock(&scorer_mtx);
 
-        while (Punteggi == NULL) {
+        while (partita_finita == 0) {
             pthread_cond_wait(&scorer_cond, &scorer_mtx);
         }
 
-        // leggo dalla testa della coda
-        risultato *r = leggi_risultato(Punteggi);
-        if (r == NULL) {
-            pthread_mutex_unlock(&scorer_mtx);
-            continue;
+        partita_finita = 0;
+        pthread_mutex_unlock(&scorer_mtx);
+
+        printf("ciao sono lo scorer %ld \n", pthread_self());
+
+        pthread_mutex_lock(&giocatori_mtx);
+        int n = Giocatori -> num_giocatori;
+        pthread_mutex_unlock(&giocatori_mtx);
+
+        pthread_mutex_lock(&coda_mtx);
+
+        while (Punteggi -> num_risultati < n) {
+            pthread_cond_wait(&coda_cond, &coda_mtx);
         }
 
-        // memorizzo temporaneamente in un array di struct (mi piace di più per il sorting)
-        tmp[i].nome_utente = strdup(r-> username);
-        tmp[i].punteggio = r -> punteggio;
+        printf("ora ho i punteggi \n");
 
-        pthread_mutex_unlock(&scorer_mtx);
+        // array per memorizzare temporaneamente i dati della coda
+        punteggi tmp[n];
+        memset(tmp, 0, sizeof(tmp));
+
+        int i = 0;
+
+        risultato *r = Punteggi -> head;
+        while (r != NULL && i < n) {
+
+            size_t len = strlen(r->username) + 1;
+
+            SYSCN(tmp[i].nome_utente, malloc(len), "Errore nell'allocazione del nome utente");
+            
+            // memorizzo temporaneamente in un array di struct (mi piace di più per il sorting)
+            strcpy(tmp[i].nome_utente, r -> username);
+            printf("nome utente: %s \n", tmp[i].nome_utente);
+
+            tmp[i].punteggio = r -> punteggio;
+            printf("punteggio: %d \n", tmp[i].punteggio);
+
+            i++;
+            r = r -> next;
+        }
+
+        stampa_coda_risultati(Punteggi);
+
+        Punteggi -> num_risultati = 0;
+
+        pthread_mutex_unlock(&coda_mtx);
+
+        // sorting dell'array temporaneo
+        qsort(tmp, i, sizeof(punteggi), sorting_classifica);
+
+        classifica[0] = '\0';
+        // preparare la classifica come stringa CSV
+        for (int j = 0; j < i; j++) {
+            char s[64];
+            snprintf(s, sizeof(s), "%s: %d\n", tmp[j].nome_utente, tmp[j].punteggio);
+            strncat(classifica, s, sizeof(classifica) - strlen(classifica) - 1);
+            free(tmp[j].nome_utente);
+        }
+
+        printf("classifica in csv: \n %s", classifica);
+
+        printf("CLASSIFICA PRONTAAA!!!!! \n");
+
+        svuota_coda_risultati(Punteggi);
+
+        // mandare a tutti i thread il segnale della classifica è pronta
+        pthread_mutex_lock(&client_mtx);
+        invia_sigusr(Threads, SIGUSR2);
+        pthread_mutex_unlock(&client_mtx);
     }
-
-    // sorting dell'array temporaneo
-    qsort(tmp, n, sizeof(punteggi), sorting_classifica);
-
-    char s[32];
-    // preparare la classifica come stringa CSV
-    for (int i = 0; i < n; i++) {
-        snprintf(s, 32, "%s, %d \n", tmp[i].nome_utente, tmp[i].punteggio);
-        strcat(classifica, s);
-    }
-    strcat(classifica, "\0");
-
-    // mandare a tutti i thread il segnale della classifica è pronta
-    pthread_mutex_lock(&client_mtx);
-    invia_sigusr(Threads, SIGUSR2);
-    pthread_mutex_unlock(&client_mtx);*/
 
     return NULL;
 }
@@ -922,6 +968,8 @@ void server(char* nome_server, int porta_server) {
     inizializza_lista_thread(&Threads);
     
     inizializza_lista_giocatori(&Giocatori);
+
+    inizializza_coda_risultati(&Punteggi);
 
     // creazione del thread per il gioco
     SYST(pthread_create(&gioco_tid, NULL, gioco, NULL));
@@ -1007,17 +1055,17 @@ int main(int argc, char *ARGV[]) {
         }
     }
 
-     /* controllare se sia matrici e seed sono stati forniti e dare errore */
+    // controllare se sia matrici e seed sono stati forniti e dare errore
     if (data_filename != NULL && seed_dato == 1) {
         fprintf(stderr, "Errore: Non è possibile fornire sia il parametro --matrici che il parametro --seed.\n");
         exit(EXIT_FAILURE);
     }
 
-    /* se sono settati controllali */
+    // se sono settati vanno controllati
 
-    /*controllo nome del file delle matrici*/
+    // controllo file delle matrici
     if (data_filename != NULL) {
-        /*se è stato fornito, controllare che sia un file regolare*/
+        // se è stato fornito, controllare che sia un file regolare
         SYSC(ret, stat(data_filename, &info), "Errore nella stat del file delle matrici! \n");
         if (!S_ISREG(info.st_mode)) {
             perror("Attenzione, file non regolare! \n");
@@ -1025,18 +1073,18 @@ int main(int argc, char *ARGV[]) {
         }
     }
 
-    /*controllo della durata in minuti*/
+    //controllo della durata in minuti
     if (durata_gioco != 0) {
-        /*se è stato fornito, controllare che sia un intero maggiore di 0*/
+        // se è stato fornito, controllare che sia un intero maggiore di 0
         if (durata_gioco <= 0) {
             perror("Attenzione, durata non valida!\n");
             exit(EXIT_FAILURE);
         }
     }
 
-    /*controllo del file dizionario*/
+    // controllo del file dizionario
     if (dizionario != NULL) {
-        /*se è stato fornito, controllare che sia un file regolare*/
+        // se è stato fornito, controllare che sia un file regolare
         SYSC(ret, stat(dizionario, &info), "Errore nella stat del file del dizionario! \n");
         if (!S_ISREG(info.st_mode)) {
             perror("Attenzione, file non regolare! \n");
@@ -1044,13 +1092,9 @@ int main(int argc, char *ARGV[]) {
         }
     }
 
-    printf("parametri ok! \n");
-
     srand(rnd_seed);
 
     main_tid = pthread_self();
-
-    printf("1 %ld \n", main_tid);
 
     // inizializzazione dei segnali
     inizializza_segnali();
@@ -1064,12 +1108,10 @@ int main(int argc, char *ARGV[]) {
     // allocazione della matrice
     matrice = allocazione_matrice();
 
-    matrice_casuale(matrice);
+    //matrice_casuale(matrice);
 
     // allocazione della bacheca
     bacheca = allocazione_bacheca();
-
-    printf("2 \n");
 
     // inizializzazione mutex
     SYST(pthread_mutex_init(&client_mtx, NULL));
@@ -1083,8 +1125,17 @@ int main(int argc, char *ARGV[]) {
     SYST(pthread_mutex_init(&scorer_mtx, NULL));
     SYST(pthread_cond_init(&scorer_cond, NULL));
 
+    SYST(pthread_mutex_init(&coda_mtx, NULL));
+    SYST(pthread_cond_init(&coda_cond, NULL));
+
     SYST(pthread_mutex_init(&bacheca_mtx, NULL));
+
     SYST(pthread_mutex_init(&fase_mtx, NULL));
+    SYST(pthread_cond_init(&fase_cond, NULL));
+
+    SYST(pthread_mutex_init(&sig_mtx, NULL));
+    SYST(pthread_cond_init(&sig_cond, NULL));
+
 
     server(nome_server, porta_server);
 

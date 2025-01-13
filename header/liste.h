@@ -129,3 +129,5 @@ risultato *leggi_risultato (coda_risultati *coda);
 
 void svuota_coda_risultati (coda_risultati *coda);
 
+void stampa_coda_risultati (coda_risultati *coda);
+

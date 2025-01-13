@@ -386,6 +386,8 @@ int main(int argc, char *ARGV[]) {
     // allocazione spazio per la struct per i thread invio e ricezione
     SYSCN(comunicazione, (thread_args *)malloc(NUM_THREAD*sizeof(thread_args)), "Errore nella malloc");
 
+    memset(comunicazione, 0, NUM_THREAD * sizeof(thread_args));
+
     // assegnazione del descrittore
     comunicazione[0].sck = fd_client;
     comunicazione[1].sck = fd_client;
