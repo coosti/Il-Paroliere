@@ -33,11 +33,9 @@ typedef struct client_args {
 
 void *sigint_handler (void *args);
 
-void *sigclient_handler (void *args);
+void sigclient_handler (int sig);
 
 void sigalrm_handler (int sig);
-
-void sigusr2_handler (int sig);
 
 // funzione calcolo tempo
 char *tempo_rimanente(time_t tempo, int minuti);

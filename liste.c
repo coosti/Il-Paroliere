@@ -123,103 +123,13 @@ void svuota_lista_thread (lista_thread *lista) {
     lista -> num_thread = 0;
 }
 
-
-// funzioni per i thread handler
-// struttura delle funzioni identiche a quelle per i thread
-void inizializza_lista_handler (lista_thread_handler **lista) {
-    *lista = (lista_thread_handler*)malloc(sizeof(lista_thread_handler));
-    if (lista == NULL) {
-        perror("Errore nell'allocazione della lista di thread handler");
-        exit(EXIT_FAILURE);
-    }
-
-    (*lista) -> head = NULL;
-}
-
-void inserisci_handler (lista_thread_handler *lista, pthread_t tid, pthread_t tid_client) {
-    thread_handler *thd = (thread_handler*)malloc(sizeof(thread_handler));
-    if (thd == NULL) {
-        perror("Errore nell'allocazione del thread handler");
-        exit(EXIT_FAILURE);
-    }
-
-    thd -> t_id = tid;
-
-    // inizializzo con il tid del thread gestore client che l'ha creato
-    thd -> client_tid = tid_client;
-
-    thd -> next = lista -> head;
-
-    lista -> head = thd;
-}
-
-void rimuovi_handler (lista_thread_handler *lista, pthread_t tid) {
-    thread_handler *tmp = lista -> head;
-    thread_handler *prev = NULL;
-
-    if (tmp == NULL) {
-        printf("Lista handler vuota\n");
-        return;
-    }
-
-    if (tmp != NULL && tmp -> t_id == tid) {
-        lista -> head = tmp -> next;
-        tmp -> next = NULL;
-
-        free(tmp);
-        return;
-    }
-    else {
-        while (tmp != NULL) {
-            if (tmp -> t_id == tid) {
-                prev -> next = tmp -> next;
-                
-                tmp -> next = NULL;
-
-                free(tmp);
-                return;
-            }
-
-            prev = tmp;
-
-            tmp = tmp -> next;
-        }
-        return;
-    }
-}
-
-void svuota_lista_handler (lista_thread_handler *lista) {
-    thread_handler *tmp = lista -> head;
-    thread_handler *nxt = NULL;
-
-    while (tmp != NULL) {
-        nxt = tmp -> next;
-
-        free(tmp);
-
-        tmp = nxt;
-    }
-
-    lista -> head = NULL;
-}
-
-void invia_sigusr1 (lista_thread_handler *lista, int segnale) {
-    thread_handler *tmp = lista -> head;
+void invia_sigusr (lista_thread *lista, int segnale) {
+    thread_attivo *tmp = lista -> head;
 
     while (tmp != NULL) {
         SYST(pthread_kill(tmp -> t_id, segnale));
 
         printf("segnale inviato \n");
-
-        tmp = tmp -> next;
-    }
-}
-
-void invia_sigusr2 (lista_thread *lista, int segnale) {
-    thread_attivo *tmp = lista -> head;
-
-    while (tmp != NULL) {
-        SYST(pthread_kill(tmp -> t_id, segnale));
 
         tmp = tmp -> next;
     }

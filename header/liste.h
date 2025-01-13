@@ -27,18 +27,6 @@ typedef struct {
     // mutex per la lista
 } lista_thread;
 
-// nodo per la lista dei thread handler
-typedef struct thread_handler {
-    pthread_t t_id;
-    pthread_t client_tid; // tid del thread client associato
-    struct thread_handler *next;
-} thread_handler;
-
-// lista thread handler
-typedef struct {
-    thread_handler *head;
-} lista_thread_handler;
-
 // lista parole trovate da un giocatore
 typedef struct parola_trovata {
     char *parola;
@@ -98,19 +86,7 @@ void rimuovi_thread (lista_thread *lista, pthread_t tid);
 
 void svuota_lista_thread (lista_thread *lista);
 
-void invia_sigusr2 (lista_thread *lista, int segnale);
-
-// funzioni lista di handler
-void inizializza_lista_handler (lista_thread_handler **lista);
-
-void inserisci_handler (lista_thread_handler *lista, pthread_t tid, pthread_t tid_client);
-
-void rimuovi_handler (lista_thread_handler *lista, pthread_t tid);
-
-void svuota_lista_handler (lista_thread_handler *lista);
-
-void invia_sigusr1 (lista_thread_handler *lista, int segnale);
-
+void invia_sigusr (lista_thread *lista, int segnale);
 
 // funzioni lista di giocatori
 void inizializza_lista_giocatori (lista_giocatori **lista);
