@@ -145,18 +145,6 @@ void inizializza_segnali() {
 // handler per il sigint
 void sigint_handler (int sig) {
     if (sig == SIGINT) {
-        // creazione del thread per gestire SIGINT
-        sigset_t set;
-        sigemptyset(&set);
-        sigaddset(&set, SIGINT);
-
-        // blocco sigint a tutti
-        SYST(pthread_sigmask(SIG_BLOCK, &set, NULL));
-
-        pthread_t sigint_tid;
-        // creazione del thread per gestire SIGINT
-        SYST(pthread_create(&sigint_tid, NULL, clean_thread, NULL));
-
         printf("sigint ricevutooooo \n");
 
         // alla ricezione del segnale, inviare il messaggio di chiusura
@@ -1169,8 +1157,19 @@ int main(int argc, char *ARGV[]) {
     SYST(pthread_mutex_init(&sig_mtx, NULL));
     SYST(pthread_cond_init(&sig_cond, NULL));
 
-
     server(nome_server, porta_server);
+
+    // creazione del thread per gestire SIGINT
+    sigset_t set;
+    sigemptyset(&set);
+    sigaddset(&set, SIGINT);
+
+    // blocco sigint a tutti
+    SYST(pthread_sigmask(SIG_BLOCK, &set, NULL));
+
+    pthread_t sigint_tid;
+    // creazione del thread per gestire SIGINT
+    SYST(pthread_create(&sigint_tid, NULL, clean_thread, NULL));
 
     return 0;
 }

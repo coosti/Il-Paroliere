@@ -64,6 +64,9 @@ void inizializza_segnali () {
 void sigint_handler (int sig) {
     int ret; 
     printf("sigint ricevuto devo chiudere \n");
+
+    // comunicare al server che il client si sta chiudendo
+    prepara_msg(fd_client, MSG_CLIENT_SHUTDOWN, NULL);
     
     // eliminare thread invio
     SYST(pthread_cancel(comunicazione[0].t_id));
@@ -133,8 +136,6 @@ void *invio_client (void *args) {
 
         buffer[strcspn(buffer, "\n")] = '\0';
 
-        printf("comando letto: %s \n", buffer);
-
         // variabile per il comando richiesto, grande quanto i byte effettivamente letti 
         char *msg_stdin;
         SYSCN(msg_stdin, (char*)malloc(n_read + 1), "Errore nella malloc");
@@ -145,9 +146,6 @@ void *invio_client (void *args) {
         // tokenizzare il contenuto di msg_stdin per prendere il comando ed eventuali parametri previsti
         char *comando = strtok(msg_stdin, " ");
         char *argomento = strtok(NULL, " ");
-
-        printf("comando: %s \n", comando);
-        printf("argomento: %s \n", argomento);
 
         // if con tutti i casi
         if (strcmp(comando, "aiuto") == 0 && argomento == NULL) {
