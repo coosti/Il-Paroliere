@@ -71,4 +71,7 @@ test4:
 	$(RUN_CLIENT1)
 
 test5:
+	$(RUN_SERVER4)
+
+test6:
 	$(RUN_CLIENT2)
