@@ -142,39 +142,8 @@ void inizializza_segnali() {
     SYST(sigaction(SIGALRM, &sa_sigalrm, NULL));
 }
 
-// handler per il sigint
-void sigint_handler (int sig) {
-    if (sig == SIGINT) {
-        printf("sigint ricevutooooo \n");
-
-        // alla ricezione del segnale, inviare il messaggio di chiusura
-        pthread_mutex_lock(&giocatori_mtx);
-
-        // recuperare il fd
-        int fd_c = recupera_fd(Giocatori, pthread_self());
-
-        pthread_mutex_unlock(&giocatori_mtx);
-
-        char *msg = "Il server sta chiudendo, disconnessione in corso";
-
-        // inviare msg al proprio client
-        prepara_msg(fd_c, MSG_SERVER_SHUTDOWN, msg);
-
-        // comunicare sulla variabile condivisa che il messaggio è stato inviato
-        pthread_mutex_lock(&sig_mtx);
-        num_chiusure++;
-        pthread_cond_signal(&sig_cond);
-        pthread_mutex_unlock(&sig_mtx);
-
-        // il thread ha finito ciò che doveva fare -> terminazione
-        pthread_exit(NULL);
-    }
-}
-
-// thread per gestire il segnale di chiusura del gioco
-// consumatore sulla variabile delle chiusure
-// avvia la procedura di pulizia e chiusura
-void *clean_thread (void *args) {
+// funzione che si occupa della procedura di pulizia e chiusura
+void chiudi_tutto () {
     int ret;
 
     pthread_mutex_lock(&sig_mtx);
@@ -264,8 +233,40 @@ void *clean_thread (void *args) {
     // chiudere il socket
     SYSC(ret, close(fd_server), "Errore nella chiusura del socket");
     SYST(pthread_cancel(main_tid));
+}
 
-    pthread_exit(NULL);
+// handler per il sigint
+void sigint_handler (int sig) {
+    if (sig == SIGINT) {
+
+        printf("sigint ricevutooooo \n");
+
+        char *msg = "Il server sta chiudendo, disconnessione in corso";
+
+        // alla ricezione del segnale, inviare il messaggio di chiusura
+        pthread_mutex_lock(&client_mtx);
+
+        // inviare il messaggio di chiusura a tutti i client
+        if (Threads -> num_thread > 0) {
+            thread_attivo *t = Threads -> head;
+
+            while (t != NULL) {
+                prepara_msg(t -> fd_c, MSG_SERVER_SHUTDOWN, msg);
+                SYST(pthread_cancel(t -> t_id));
+                t = t -> next;
+            }
+        }
+
+        pthread_mutex_unlock(&client_mtx);
+
+        printf("chiusura \n");
+
+        printf("inizio della routine di chiusura e pulizia \n");
+
+        chiudi_tutto();
+
+        exit(EXIT_SUCCESS);
+    }
 }
 
 // thread per la gestione dei segnale per i client 
@@ -410,9 +411,6 @@ void *thread_client (void *args) {
 
     sigset_t set_client;
     sigemptyset(&set_client);
-
-    // mettendo sigint nella maschera, il segnale sarà intercettato dal thread
-    sigaddset(&set_client, SIGINT);
 
     // alla maschera si aggiungono anche i segnali personalizzati
     sigaddset(&set_client, SIGUSR1);
@@ -1017,7 +1015,7 @@ void *scorer (void *args) {
 
         // aggiunta del thread alla lista
         pthread_mutex_lock(&client_mtx);
-        inserisci_thread(Threads, params -> t_id);
+        inserisci_thread(Threads, params -> t_id, fd_client);
         pthread_mutex_unlock(&client_mtx);
     }
 }
@@ -1159,17 +1157,7 @@ int main(int argc, char *ARGV[]) {
 
     server(nome_server, porta_server);
 
-    // creazione del thread per gestire SIGINT
-    sigset_t set;
-    sigemptyset(&set);
-    sigaddset(&set, SIGINT);
-
-    // blocco sigint a tutti
-    SYST(pthread_sigmask(SIG_BLOCK, &set, NULL));
-
-    pthread_t sigint_tid;
-    // creazione del thread per gestire SIGINT
-    SYST(pthread_create(&sigint_tid, NULL, clean_thread, NULL));
+    SYSC(ret, wait(NULL), "Errore nella wait");
 
     return 0;
 }

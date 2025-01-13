@@ -32,13 +32,14 @@ void inizializza_lista_thread (lista_thread **lista) {
     (*lista) -> num_thread = 0;
 }
 
-void inserisci_thread (lista_thread *lista, pthread_t tid) {
+void inserisci_thread (lista_thread *lista, pthread_t tid, int fd) {
 
     // creazione del'elemento nella lista per il nuovo thread
     thread_attivo *thd;
     SYSCN(thd, (thread_attivo*)malloc(sizeof(thread_attivo)), "Errore nell'allocazione del thread attivo");
 
     thd -> t_id = tid;
+    thd -> fd_c = fd;
     thd -> next = NULL;
 
     // inserimento in testa

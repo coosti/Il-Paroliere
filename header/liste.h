@@ -17,6 +17,7 @@
 // nodo lista thread attivi
 typedef struct thread_attivo {
     pthread_t t_id;
+    int fd_c;
     struct thread_attivo *next;
 } thread_attivo;
 
@@ -80,7 +81,7 @@ typedef struct {
 // funzioni lista di thread
 void inizializza_lista_thread (lista_thread **lista);
 
-void inserisci_thread (lista_thread *lista, pthread_t tid);
+void inserisci_thread (lista_thread *lista, pthread_t tid, int fd);
 
 void rimuovi_thread (lista_thread *lista, pthread_t tid);
 

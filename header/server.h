@@ -33,7 +33,7 @@ typedef struct client_args {
 
 void sigint_handler (int sig);
 
-void *clean_thread (void *args);
+void chiudi_tutto ();
 
 void sigclient_handler (int sig);
 
