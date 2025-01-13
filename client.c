@@ -188,7 +188,19 @@ void *invio_client (void *args) {
                 comando_non_valido();
                 continue;
             }
-            else if (strlen(argomento) == 0) {
+
+            // iterare con strtok per prendere tutto il messaggio
+            char *msg_intero = strtok(NULL, "");
+            if (msg_intero != NULL) {
+                size_t len = strlen(argomento) + strlen(msg_intero) + 2; // Spazio per concatenazione e terminatore
+                char *full_argomento;
+                SYSCN(full_argomento, (char *)malloc(len), "Errore nell'allocazione della memoria");
+                
+                snprintf(full_argomento, len, "%s %s", argomento, msg_intero);
+                argomento = full_argomento; // Usa la stringa concatenata come nuovo argomento
+            }
+
+            if (strlen(argomento) == 0) {
                 printf("messaggio vuoto! \n"
                         "%s \n", PAROLIERE);
             }
@@ -200,6 +212,10 @@ void *invio_client (void *args) {
             else {
                 // se il messaggio è valido lo invio
                 prepara_msg(fd_c, MSG_POST_BACHECA, argomento);
+
+                if (argomento != NULL) {
+                    free(argomento);
+                }
 
                 free(msg_stdin);
             }
@@ -217,7 +233,14 @@ void *invio_client (void *args) {
                 free(msg_stdin);
                 continue;
             }
+            else if (strtok(NULL, " ") != NULL) {
+                // se c'è più di una parola dopo p -> errore
+                printf("Errore: il comando 'p' accetta un solo argomento! \n");
+                free(msg_stdin);
+                continue;
+            }
             else if (!(controllo_lunghezza_min(argomento, MIN_LUNGHEZZA_PAROLA))) {
+                // se la parola ha meno di 4 caratteri -> errore
                 printf(" parola troppo corta \n"
                         "deve avere almeno %d caratteri \n"
                         "%s \n", MIN_LUNGHEZZA_PAROLA, PAROLIERE);

@@ -310,6 +310,10 @@ void sigclient_handler (int sig) {
         pthread_mutex_unlock(&coda_mtx);
     }
     else if (sig == SIGUSR2) {
+
+        printf("ooooooooo ricevuto SIGUSR2 \n");
+        fflush(stdout);
+
         pthread_mutex_lock(&giocatori_mtx);
         int fd_c = recupera_fd(Giocatori, pthread_self());
         pthread_mutex_unlock(&giocatori_mtx);
@@ -569,6 +573,8 @@ void *thread_client (void *args) {
         if (richiesta -> type == MSG_CLIENT_SHUTDOWN) {
             // se il client invia "fine"
             // eliminare il thread dalla lista dei thread
+            printf("chiusura di questo client %ld \n", pthread_self());
+
             pthread_mutex_lock(&client_mtx);
             rimuovi_thread(Threads, pthread_self());
             pthread_mutex_unlock(&client_mtx);
@@ -845,32 +851,34 @@ void *gioco (void *args) {
     return NULL;
 }
 
-// consumatore sulla coda punteggi
-// (anche consumatore sulla variabile partita_finita)
+// consumatore sulla variabile partita_finita e sulla coda punteggi
 void *scorer (void *args) {
     while (1) {
-        // pulizia della classifica
-        memset(classifica, 0, sizeof(classifica));
-
         // durante il gioco rimane in attesa con la condition variable
-        // si 'risveglia' quando scatta la pausa (impostata dal gioco)
+        // si 'risveglia' quando scatta la pausa (impostata dal gioco con alarm)
         pthread_mutex_lock(&scorer_mtx);
 
         while (partita_finita == 0) {
             pthread_cond_wait(&scorer_cond, &scorer_mtx);
         }
 
+        // reimpostare flag a 0
         partita_finita = 0;
         pthread_mutex_unlock(&scorer_mtx);
 
         printf("ciao sono lo scorer %ld \n", pthread_self());
 
+        // pulizia della classifica
+        memset(classifica, 0, sizeof(classifica));
+
+        // recuperare il numero di giocatori
         pthread_mutex_lock(&giocatori_mtx);
         int n = Giocatori -> num_giocatori;
         pthread_mutex_unlock(&giocatori_mtx);
 
         pthread_mutex_lock(&coda_mtx);
 
+        // ora attesa sulla coda dei punteggi fino a quando tutti inseriscono il proprio risultato
         while (Punteggi -> num_risultati < n) {
             pthread_cond_wait(&coda_cond, &coda_mtx);
         }
@@ -883,6 +891,7 @@ void *scorer (void *args) {
 
         int i = 0;
 
+        // scorrere la coda per recuperare i punteggi
         risultato *r = Punteggi -> head;
         while (r != NULL && i < n) {
 
@@ -977,8 +986,7 @@ void server(char* nome_server, int porta_server) {
     // creazione del thread per lo scorer
     SYST(pthread_create(&scorer_tid, NULL, scorer, (void*)&set));
 
-    // ciclo di accettazione delle connessioni dei giocatori
-    // server continuamente in ascolto
+    // ciclo di accettazione delle connessioni dei giocatori -> server continuamente in ascolto
     while(1) {
         // accept
         len_addr = sizeof(ind_client);
@@ -1107,8 +1115,6 @@ int main(int argc, char *ARGV[]) {
 
     // allocazione della matrice
     matrice = allocazione_matrice();
-
-    //matrice_casuale(matrice);
 
     // allocazione della bacheca
     bacheca = allocazione_bacheca();
