@@ -24,6 +24,16 @@ typedef struct {
     int sck;   // puntatore al file descriptor del socket
 } thread_args;
 
+void inizializza_segnali ();
+
+void sigint_handler (int sig);
+
+void invio_handler (int sig);
+
+void ricezione_handler (int sig);
+
 void *invio_client (void *args);
 
 void *ricezione_client (void *args);
+
+void client (char *nome_server, int porta_server);

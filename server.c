@@ -114,7 +114,7 @@ void inizializza_segnali() {
     // inizializzazione della maschera
     sigemptyset(&set);
 
-    SYSC(ret, sigaddset(&set, SIGALRM), "Errore nell'aggiunta di SIGALRM alla maschera");
+    SYSC(ret, sigaddset(&set, SIGINT), "Errore nell'aggiunta di SIGINT alla maschera");
     SYSC(ret, sigaddset(&set, SIGUSR1), "Errore nell'aggiunta di SIGUSR1 alla maschera");
     SYSC(ret, sigaddset(&set, SIGUSR2), "Errore nell'aggiunta di SIGUSR2 alla maschera");
 
@@ -122,7 +122,7 @@ void inizializza_segnali() {
 
     sa_signals.sa_handler = sigclient_handler; // viene gestito dall'handler client
     sa_signals.sa_mask = set;
-    sa_signals.sa_flags = SA_RESTART;
+    sa_signals.sa_flags = SA_RESTART; // --> capire perché sigint non viene riavviato
 
     SYST(sigaction(SIGINT, &sa_signals, NULL));
     SYST(sigaction(SIGUSR1, &sa_signals, NULL));
@@ -144,6 +144,7 @@ void inizializza_segnali() {
 // consumatore sulla variabile delle chiusure
 // avvia la procedura di pulizia e chiusura
 void *sigint_handler (void *args) {
+    int ret;
 
     pthread_mutex_lock(&sig_mtx);
 
@@ -230,7 +231,7 @@ void *sigint_handler (void *args) {
     }
 
     // chiudere il socket
-    close(fd_server);
+    SYSC(ret, close(fd_server), "Errore nella chiusura del socket");
     SYST(pthread_cancel(main_tid));
 
     pthread_exit(NULL);

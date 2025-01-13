@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include <stdio.h> 
 #include <stdlib.h> 
 #include <string.h> 
@@ -8,6 +9,7 @@
 #include <pthread.h>
 #include <getopt.h> 
 #include <ctype.h>
+#include <signal.h>
 
 #include <sys/socket.h> 
 #include <sys/types.h>
@@ -29,25 +31,84 @@ thread_args *comunicazione;
 
 char *PAROLIERE = "[PROMPT PAROLIERE] --> ";
 
-// implementare il gestore dei segnali(
-void sigint_handler (int sig) {
-    // ricezione di sigint da tastiera
+void inizializza_segnali () {
+    struct sigaction sa_int, sa_usr1, sa_usr2;
+    sigset_t set;
+    
+    // bloccare SIGUSR1 e SIGUSR2 nel thread principale
+    sigemptyset(&set);
+    sigaddset(&set, SIGUSR1);
+    sigaddset(&set, SIGUSR2);
+    SYST(pthread_sigmask(SIG_BLOCK, &set, NULL));
 
+    // handler per sigint
+    sa_int.sa_handler = sigint_handler;
+    sigemptyset(&sa_int.sa_mask);
+    sa_int.sa_flags = 0;
+    SYST(sigaction(SIGINT, &sa_int, NULL));
+
+    // handler per sigusr1
+    sa_usr1.sa_handler = invio_handler;
+    sigemptyset(&sa_usr1.sa_mask);
+    sa_usr1.sa_flags = 0;
+    SYST(sigaction(SIGUSR1, &sa_usr1, NULL));
+
+    // handler per sigusr2
+    sa_usr2.sa_handler = ricezione_handler;
+    sigemptyset(&sa_usr2.sa_mask);
+    sa_usr2.sa_flags = 0;
+    SYST(sigaction(SIGUSR2, &sa_usr2, NULL));
 }
 
+// implementare il gestore dei segnali(
+void sigint_handler (int sig) {
+    int ret; 
+    printf("sigint ricevuto devo chiudere \n");
+    
+    // eliminare thread invio
+    SYST(pthread_cancel(comunicazione[0].t_id));
 
+    // eliminare thread ricezione
+    SYST(pthread_cancel(comunicazione[1].t_id));
+    
+    // chiusura del socket
+    SYSC(ret, close(fd_client), "Errore nella chiusura del socket");
+    
+    // liberare struct comunicazione dei thread
+    if (comunicazione != NULL) {
+        free(comunicazione);
+    }
+    
+    exit(EXIT_SUCCESS);
+}
 
-// alla chiusura ricordati di liberare struct comunicazione
+// handler per sigusr1
+void invio_handler (int sig) {
+    printf("ricevuto sigusr1\n");
 
+    pthread_cancel(comunicazione[0].t_id);
+}
+
+// handler per sigusr2
+void ricezione_handler (int sig) {
+    printf("ricevuto sigusr2 !!!\n");
+
+    pthread_cancel(comunicazione[1].t_id);
+}
 
 // thread per leggere comandi da tastiera e inviarli al server
-// SERVIREBBE UNA LOCK ?????
 void *invio_client (void *args) {
 
     // dagli argomenti recuperare il descrittore del socket
     thread_args *param = (thread_args *)args;
 
     int fd_c = param->sck;
+
+    // sbloccare SIGUSR1
+    sigset_t set;
+    sigemptyset(&set);
+    sigaddset(&set, SIGUSR1);
+    SYST(pthread_sigmask(SIG_UNBLOCK, &set, NULL));
 
     while (1) {
         // lettura da standard input 
@@ -177,7 +238,7 @@ void *invio_client (void *args) {
             // comunicare al server che il client si sta chiudendo
             prepara_msg(fd_c, MSG_CLIENT_SHUTDOWN, NULL);
 
-            // chiudi
+            SYST(pthread_kill(comunicazione[1].t_id, SIGUSR2));
 
             free(msg_stdin);
 
@@ -202,9 +263,17 @@ void *ricezione_client (void *args) {
 
     int fd_c = param->sck;
 
+    // sbloccare SIGUSR2
+    sigset_t set;
+    sigemptyset(&set);
+    sigaddset(&set, SIGUSR1);
+    SYST(pthread_sigmask(SIG_UNBLOCK, &set, NULL));
+
+    Msg_Socket *risposta = NULL;
+
     // attesa della risposta dal server
     while (1) {
-        Msg_Socket *risposta = ricezione_msg(fd_c);
+        risposta = ricezione_msg(fd_c);
 
         if (risposta -> data == NULL) {
             // se non si riceve nulla, continuare ad attendere
@@ -261,13 +330,19 @@ void *ricezione_client (void *args) {
         }
         else if (risposta -> type == MSG_SERVER_SHUTDOWN) {
             // il server si sta chiudendo, devo chiudere anche io client
-            
+            printf("Il server si sta chiudendo... \n");
+
+            // avviso il thread di invio della chiusura del server
+            SYST(pthread_kill(comunicazione[0].t_id, SIGUSR1));
         }
 
         // se la risposta non è valida, la ignoro
         printf("%s \n", PAROLIERE);
+
+        free(risposta->data);
     }
 
+    free(risposta);
     return NULL;
 }
 
