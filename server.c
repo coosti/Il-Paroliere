@@ -125,7 +125,6 @@ void inizializza_segnali() {
     SYST(sigaction(SIGUSR1, &sa_signals, NULL));
     SYST(sigaction(SIGUSR2, &sa_signals, NULL));
 
-
     sigemptyset(&set);
     sa_sigint.sa_handler = sigint_handler; 
     sa_sigint.sa_mask = set;
@@ -158,20 +157,20 @@ void sigint_handler (int sig) {
         // creazione del thread per gestire SIGINT
         SYST(pthread_create(&sigint_tid, NULL, clean_thread, NULL));
 
-        printf("segnale ricevuto ?????? \n");
+        printf("sigint ricevutooooo \n");
 
-        // alla ricezione del segnale, il thread deve inviare il messaggio di chiusura del server al proprio client
+        // alla ricezione del segnale, inviare il messaggio di chiusura
         pthread_mutex_lock(&giocatori_mtx);
 
         // recuperare il fd
-        
+        int fd_c = recupera_fd(Giocatori, pthread_self());
 
         pthread_mutex_unlock(&giocatori_mtx);
 
         char *msg = "Il server sta chiudendo, disconnessione in corso";
 
-        // inviare msg
-        // prepara_msg(fd_c, MSG_SERVER_SHUTDOWN, msg);
+        // inviare msg al proprio client
+        prepara_msg(fd_c, MSG_SERVER_SHUTDOWN, msg);
 
         // comunicare sulla variabile condivisa che il messaggio è stato inviato
         pthread_mutex_lock(&sig_mtx);
@@ -424,11 +423,14 @@ void *thread_client (void *args) {
     sigset_t set_client;
     sigemptyset(&set_client);
 
-    // Aggiungere SIGUSR2 alla maschera
+    // mettendo sigint nella maschera, il segnale sarà intercettato dal thread
+    sigaddset(&set_client, SIGINT);
+
+    // alla maschera si aggiungono anche i segnali personalizzati
     sigaddset(&set_client, SIGUSR1);
     sigaddset(&set_client, SIGUSR2);
 
-    // Sbloccare SIGUSR2 per thread_client
+    // Sbloccare i segnali della maschera per thread_client
     SYST(pthread_sigmask(SIG_UNBLOCK, &set_client, NULL));
 
     // giocatore associato al thread
