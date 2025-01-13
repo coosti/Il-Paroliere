@@ -17,17 +17,17 @@ PORTA3 = 1027
 
 # parametri opzionali
 MATRICI ?= --matrici matrix.txt
-DURATA ?= --durata 2
+DURATA ?= --durata 1 # 3
 SEED ?= --seed 21
 DIZ ?= --diz dictionary_ita.txt
 
 RUN_SERVER1 = ./$(EXEC_SERVER) $(NOME) $(PORTA1)
 
-RUN_SERVER2 = ./$(EXEC_SERVER) $(NOME) $(PORTA2) $(MATRICI) $(DURATA) $(DIZ)
+RUN_SERVER2 = ./$(EXEC_SERVER) $(NOME) $(PORTA1) $(MATRICI) $(DURATA) $(DIZ)
 
 RUN_SERVER3 = ./$(EXEC_SERVER) $(NOME) $(PORTA3) $(MATRICI) $(DURATA) $(SEED) $(DIZ)
 
-RUN_SERVER4 = ./$(EXEC_SERVER) $(NOME) $(PORTA1) $(SEED)
+RUN_SERVER4 = ./$(EXEC_SERVER) $(NOME) $(PORTA2) $(SEED)
 
 RUN_CLIENT1 = ./$(EXEC_CLIENT) $(NOME) $(PORTA1)
 

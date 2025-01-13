@@ -60,7 +60,7 @@ void inizializza_segnali () {
     SYST(sigaction(SIGUSR2, &sa_usr2, NULL));
 }
 
-// implementare il gestore dei segnali(
+// handler per sigint -> chiusura del client
 void sigint_handler (int sig) {
     int ret; 
     printf("sigint ricevuto devo chiudere \n");
@@ -79,21 +79,32 @@ void sigint_handler (int sig) {
         free(comunicazione);
     }
     
-    exit(EXIT_SUCCESS);
+    exit(0);
 }
+
+// segnali per chiudersi reciprocamente
 
 // handler per sigusr1
 void invio_handler (int sig) {
     printf("ricevuto sigusr1\n");
 
-    pthread_cancel(comunicazione[0].t_id);
+    // inviare messaggio di chiusura al server
+    prepara_msg(fd_client, MSG_CLIENT_SHUTDOWN, NULL);
+
+    // terminazione
+    pthread_exit(NULL);
+    return;
 }
 
 // handler per sigusr2
 void ricezione_handler (int sig) {
     printf("ricevuto sigusr2 !!!\n");
 
-    pthread_cancel(comunicazione[1].t_id);
+    // non deve fare nulla perché non deve più ricevere
+    
+    // terminazione
+    pthread_exit(NULL);
+    return;
 }
 
 // thread per leggere comandi da tastiera e inviarli al server
@@ -109,6 +120,8 @@ void *invio_client (void *args) {
     sigemptyset(&set);
     sigaddset(&set, SIGUSR1);
     SYST(pthread_sigmask(SIG_UNBLOCK, &set, NULL));
+
+    printf("ciao sono thread invio tid: %ld \n", pthread_self());
 
     while (1) {
         // lettura da standard input 
@@ -183,7 +196,6 @@ void *invio_client (void *args) {
         }
         else if (strcmp(comando, "msg") == 0) {
             // prima di inviare il messaggio, controllarne la lunghezza
-            // CONTROLLA!!!!!!!!
             if (argomento == NULL) {
                 comando_non_valido();
                 continue;
@@ -212,10 +224,6 @@ void *invio_client (void *args) {
             else {
                 // se il messaggio è valido lo invio
                 prepara_msg(fd_c, MSG_POST_BACHECA, argomento);
-
-                if (argomento != NULL) {
-                    free(argomento);
-                }
 
                 free(msg_stdin);
             }
@@ -261,7 +269,10 @@ void *invio_client (void *args) {
             // comunicare al server che il client si sta chiudendo
             prepara_msg(fd_c, MSG_CLIENT_SHUTDOWN, NULL);
 
+            // avviso il thread di ricezione della chiusura del client
             SYST(pthread_kill(comunicazione[1].t_id, SIGUSR2));
+
+            pthread_exit(NULL);
 
             free(msg_stdin);
 
@@ -274,6 +285,8 @@ void *invio_client (void *args) {
 
         memset(buffer, 0, MAX_LUNGHEZZA_STDIN);
     }
+
+    printf("ciao mi sono chiuso invio \n");
 
     return NULL;
 }
@@ -289,13 +302,18 @@ void *ricezione_client (void *args) {
     // sbloccare SIGUSR2
     sigset_t set;
     sigemptyset(&set);
-    sigaddset(&set, SIGUSR1);
+    sigaddset(&set, SIGUSR2);
     SYST(pthread_sigmask(SIG_UNBLOCK, &set, NULL));
 
     Msg_Socket *risposta = NULL;
 
+    printf("ciao sono io ricevitore tid: %ld \n", pthread_self());
+
     // attesa della risposta dal server
     while (1) {
+        // se la risposta non è valida, la ignoro
+        printf("%s \n", PAROLIERE);
+
         risposta = ricezione_msg(fd_c);
 
         if (risposta -> data == NULL) {
@@ -327,7 +345,7 @@ void *ricezione_client (void *args) {
         }
         else if (risposta -> type == MSG_PUNTI_FINALI) {
             // stampa della classifica
-            int i = 0;
+            int i = 1;
 
             printf("Classifica finale: \n");
             char *token = strtok(risposta->data, "\n");
@@ -335,11 +353,12 @@ void *ricezione_client (void *args) {
             printf("Il vincitore è: %s \n", token);
 
             while (token != NULL) {
-                token = strtok(NULL, "\n");
                 printf(" %d %s \n", i, token);
+
+                token = strtok(NULL, "\n");
+
                 i++;
             }
-            
         }
         else if (risposta -> type == MSG_SHOW_BACHECA) {
             if (risposta -> length == 0) {
@@ -355,17 +374,22 @@ void *ricezione_client (void *args) {
             // il server si sta chiudendo, devo chiudere anche io client
             printf("Il server si sta chiudendo... \n");
 
-            // avviso il thread di invio della chiusura del server
+            // avviso al thread di invio della chiusura del server
             SYST(pthread_kill(comunicazione[0].t_id, SIGUSR1));
-        }
 
-        // se la risposta non è valida, la ignoro
-        printf("%s \n", PAROLIERE);
+            pthread_exit(NULL);
+        }
+        else {
+            printf("Risposta non valida! \n");
+        }
 
         free(risposta->data);
     }
 
     free(risposta);
+
+    printf("ciao mi sono chiuso ricezione \n");
+
     return NULL;
 }
 
@@ -407,7 +431,7 @@ int main(int argc, char *ARGV[]) {
     SYSC(ret, write(STDOUT_FILENO, msg, strlen(msg)), "Errore nella write");
 
     // allocazione spazio per la struct per i thread invio e ricezione
-    SYSCN(comunicazione, (thread_args *)malloc(NUM_THREAD*sizeof(thread_args)), "Errore nella malloc");
+    SYSCN(comunicazione, (thread_args*)malloc(NUM_THREAD * sizeof(thread_args)), "Errore nella malloc");
 
     memset(comunicazione, 0, NUM_THREAD * sizeof(thread_args));
 
@@ -424,6 +448,10 @@ int main(int argc, char *ARGV[]) {
     // attesa thread
     SYST(pthread_join(comunicazione[0].t_id, NULL));
     SYST(pthread_join(comunicazione[1].t_id, NULL));
+
+    //SYSC(ret, close(fd_client), "Errore nella chiusura del socket");
+
+    free(comunicazione);
 
     return 0;
 }

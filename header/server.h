@@ -31,7 +31,9 @@ typedef struct client_args {
     int sck;
 } client_args;
 
-void *sigint_handler (void *args);
+void sigint_handler (int sig);
+
+void *clean_thread (void *args);
 
 void sigclient_handler (int sig);
 

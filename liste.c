@@ -21,32 +21,38 @@
 
 void inizializza_lista_thread (lista_thread **lista) {
     *lista = (lista_thread*)malloc(sizeof(lista_thread));
-    if (lista == NULL) {
+    if (*lista == NULL) {
         perror("Errore nell'allocazione della lista di thread attivi");
         exit(EXIT_FAILURE);
     }
 
     (*lista) -> head = NULL;
     (*lista) -> num_thread = 0;
+
+    (*lista) -> num_thread = 0;
 }
 
 void inserisci_thread (lista_thread *lista, pthread_t tid) {
 
     // creazione del'elemento nella lista per il nuovo thread
-    thread_attivo *thd = (thread_attivo*)malloc(sizeof(thread_attivo));
-    if (thd == NULL) {
-        perror("Errore nell'allocazione del thread attivo");
-        exit(EXIT_FAILURE);
-    }
+    thread_attivo *thd;
+    SYSCN(thd, (thread_attivo*)malloc(sizeof(thread_attivo)), "Errore nell'allocazione del thread attivo");
 
     thd -> t_id = tid;
+    thd -> next = NULL;
 
     // inserimento in testa
-    // il next del nuovo thread è la vecchia testa della lista
-    thd -> next = lista -> head;
+    // caso lista vuota
+    if (lista -> head == NULL) {
+        lista -> head = thd;
+    }
+    else {
+        // il next del nuovo thread è la vecchia testa della lista  
+        thd -> next = lista -> head;
 
-    // la nuova testa è il nuovo thread
-    lista -> head = thd;
+        // la nuova testa è il nuovo thread
+        lista -> head = thd;
+    }
 
     // incremento del numero di thread attivi
     lista -> num_thread++;
@@ -55,40 +61,39 @@ void inserisci_thread (lista_thread *lista, pthread_t tid) {
 void rimuovi_thread (lista_thread *lista, pthread_t tid) {
     
     // puntatore per scorrere
-    thread_attivo *tmp = lista -> head;
+    thread_attivo *tmp;
     // puntatore per mantenere l'elemento precedente a quello corrente
     thread_attivo *prev = NULL;
 
-    if (tmp == NULL) {
+    if (lista -> head == NULL) {
         printf("Lista vuota\n");
         return;
     }
 
+    tmp = lista -> head;
+
     // se il thread da rimuovere è in testa
-    if (tmp != NULL && tmp -> t_id == tid) {
+    if (tmp != NULL && pthread_equal(tmp -> t_id, tid)) {
         // la nuova testa è l'elemento successivo di tmp
         lista -> head = tmp -> next;
         tmp -> next = NULL;
 
         // deallocare la memoria del thread
         free(tmp);
-        // decrementare il numero di thread
-        lista -> num_thread--;
         return;
     }
     else {
         // se è nel mezzo, scorrere la lista
         int i = 0;
 
-        while (tmp != NULL && i < lista -> num_thread) {
-            if (tmp -> t_id == tid) {
+        while (tmp != NULL) {
+            if (pthread_equal(tmp -> t_id, tid)) {
                 // il next dell'elemento precedente punta all'elemento successivo di tmp
                 prev -> next = tmp -> next;
                 // mettere a null il next di tmp
                 tmp -> next = NULL;
 
                 free(tmp);
-                lista -> num_thread--;
                 return;
             }
 
@@ -112,8 +117,10 @@ void svuota_lista_thread (lista_thread *lista) {
     while (tmp != NULL) {
         nxt = tmp -> next;
 
-        // deallocare memoria e mano a mano diminuire il numero di thread
+        // deallocare memoria
         free(tmp);
+
+        // decrementare il numero di thread attivi
         lista -> num_thread--;
 
         tmp = nxt;
@@ -137,17 +144,18 @@ void invia_sigusr (lista_thread *lista, int segnale) {
 
 void inizializza_lista_giocatori (lista_giocatori **lista) {
     *lista = (lista_giocatori*)malloc(sizeof(lista_giocatori));
-    if (lista == NULL) {
+    if (*lista == NULL) {
         perror("Errore nell'allocazione della lista di giocatori");
         exit(EXIT_FAILURE);
     }
 
     (*lista) -> head = NULL;
     (*lista) -> num_giocatori = 0;
+
+    (*lista) -> num_giocatori = 0;
 }
 
 giocatore *inserisci_giocatore (lista_giocatori *lista, char *nome_utente, int fd) {
-
     // creazione dell'elemento del giocatore nella lista
     giocatore *g;
     SYSCN(g, (giocatore*)malloc(sizeof(giocatore)), "Errore nell'allocazione del giocatore");
@@ -166,21 +174,22 @@ giocatore *inserisci_giocatore (lista_giocatori *lista, char *nome_utente, int f
     // assegnazione del tid del thread
     g -> t_id = pthread_self();
 
-    // assegnazione del tid del thread handler
-    g -> tid_sigclient = -1;
-
-    // inizializzazione del punteggio a 0 a inizio partita
-    g -> punteggio = 0;
-
     // inizializzazione della lista delle parole trovate a NULL
-    g -> parole_trovate = NULL;
+    g -> parole_trovate = inizializza_parole();
 
     // assegnazione del descrittore del socket
     g -> fd_c = fd;
 
-    g -> next = lista -> head;
+    g -> next = NULL;
 
-    lista -> head = g;
+    if (lista -> head == NULL) {
+        lista -> head = g;
+    }
+    else {
+        g -> next = lista -> head;
+
+        lista -> head = g;
+    }
 
     return g;
 }
@@ -215,7 +224,7 @@ char *recupera_username (lista_giocatori *lista, pthread_t tid) {
     }
 
     while (tmp != NULL) {
-        if (tmp -> t_id == tid) {
+        if (pthread_equal(tmp -> t_id, tid)) {
             return tmp -> username;
         }
         tmp = tmp -> next;        
@@ -232,7 +241,7 @@ int recupera_punteggio (lista_giocatori *lista, pthread_t tid) {
     }
 
     while (tmp != NULL) {
-        if (tmp -> t_id == tid) {
+        if (pthread_equal(tmp -> t_id, tid)) {
             return tmp -> punteggio;
         }
         tmp = tmp -> next;
@@ -249,7 +258,7 @@ int recupera_fd (lista_giocatori *lista, pthread_t tid) {
     }
 
     while (tmp != NULL) {
-        if (tmp -> t_id == tid) {
+        if (pthread_equal(tmp -> t_id, tid)) {
             return tmp -> fd_c;
         }
         tmp = tmp -> next;
@@ -266,7 +275,7 @@ void resetta_punteggio (lista_giocatori *lista, pthread_t tid) {
     }
 
     while (tmp != NULL) {
-        if (tmp -> tid_sigclient == tid) {
+        if (pthread_equal(tmp -> t_id, tid)) {
             tmp -> punteggio = 0;
             return;
         }
@@ -286,51 +295,51 @@ void rimuovi_giocatore (lista_giocatori *lista, char *nome_utente) {
 
     // giocatore da eliminare è in testa
     // confronto tra stringhe del nome utente di tmp e il nome utente passato come parametro
-    if (tmp != NULL && strcmp(tmp ->username, nome_utente)) {
+    if (strcmp(tmp ->username, nome_utente) == 0) {
         lista -> head = tmp -> next;
         tmp -> next = NULL;
 
-        // deallocare la memoria dell'username e del giocatore stesso
+        // deallocare la memoria
         free(tmp -> username);
         free(tmp);
 
-        // decrementare il numero di giocatori
-        lista -> num_giocatori--;
         return;
     }
-    else {
-        // giocatore da eliminare è nel mezzo
-        int i = 0;
+    
+    // se il giocatore da eliminare è nel mezzo
+    while (tmp != NULL) {
+        if (strcmp(tmp ->username, nome_utente) == 0) {
+            // il next dell'elemento precedente punta all'elemento successivo di tmp
+            prev -> next = tmp -> next;
+            tmp -> next = NULL;
 
-        while (tmp != NULL && i < lista -> num_giocatori) {
-            if (strcmp(tmp ->username, nome_utente)) {
-                prev -> next = tmp -> next;
-                tmp -> next = NULL;
+            free(tmp -> username);
+            free(tmp);
 
-                free(tmp -> username);
-                free(tmp);
-
-                lista -> num_giocatori--;
-                return;
-            }
+            return;
+        }
 
             prev = tmp;
             tmp = tmp -> next;
-            i++;
-        }
-
-        return;
     }
+
 }
 
 void svuota_lista_giocatori (lista_giocatori *lista) {
+    if (lista -> head == NULL) {
+        return;
+    }
+
     giocatore *tmp = lista -> head;
     giocatore *nxt = NULL;
 
     while (tmp != NULL) {
         nxt = tmp -> next;
 
+        // liberare memoria nome utente
         free(tmp -> username);
+
+        // liberare memoria giocatore
         free(tmp);
 
         lista -> num_giocatori--;
@@ -358,11 +367,8 @@ lista_parole *inizializza_parole () {
 
 void inserisci_parola (lista_parole *lista, char *parola, int punti) {
     // creazione del'elemento nella lista per il nuovo thread
-    parola_trovata *p = (parola_trovata*)malloc(sizeof(parola_trovata));
-    if (p == NULL) {
-        perror("Errore nell'allocazione del thread attivo");
-        exit(EXIT_FAILURE);
-    }
+    parola_trovata *p;
+    SYSCN(p, (parola_trovata*)malloc(sizeof(parola_trovata)), "Errore nell'allocazione della parola trovata");
 
     // inizializzazione della parola trovata
     p -> parola = (char*)malloc(strlen(parola) + 1);
@@ -371,17 +377,23 @@ void inserisci_parola (lista_parole *lista, char *parola, int punti) {
         free(p);
         exit(EXIT_FAILURE);
     }
-    strncpy(p -> parola, parola, strlen(parola));
-    p -> parola[strlen(parola)] = '\0';
+    strcpy(p -> parola, parola);
 
     p -> punti = punti;
 
-    // inserimento in testa
-    // il puntatore a next della nuova parola è la vecchia testa della lista
-    p -> next = lista -> head;
+    p -> next = NULL;
 
-    // la nuova testa è la nuova parola
-    lista -> head = p;
+    // inserimento in testa
+    if (lista -> head == NULL) {
+        lista -> head = p;
+    }
+    else {
+        // il puntatore a next della nuova parola è la vecchia testa della lista
+        p -> next = lista -> head;
+
+        // la nuova testa è la nuova parola
+        lista -> head = p;
+    }
 
     // incremento del numero di parole trovate dal giocatore
     lista -> num_parole++;
