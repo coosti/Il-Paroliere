@@ -30,6 +30,7 @@
 pthread_t main_tid;
 pthread_t scorer_tid;
 pthread_t gioco_tid;
+pthread_t chiusura_tid;
 
 // socket
 int fd_server;
@@ -57,9 +58,11 @@ int fase_gioco = 0;
 // 0 = partita in corso, 1 = partita finita
 int partita_finita = 0;
 
-// variabile per memorizzare quanti hanno inviato il messaggio di chiusura al proprio client
-int num_chiusure = 0;
+// variabile globale per la chiusura del server
+int chiudi = 0;
 
+// variabile globale per memorizzare quanti hanno inviato il messaggio di chiusura al proprio client
+int num_chiusure = 0;
 
 // strutture dati globali
 Trie *radice = NULL;
@@ -80,7 +83,6 @@ char classifica[MAX_DIM];
 
 // mutex
 pthread_mutex_t client_mtx;
-pthread_mutex_t handler_mtx;
 pthread_mutex_t giocatori_mtx;
 pthread_mutex_t parole_mtx;
 
@@ -94,12 +96,15 @@ pthread_mutex_t fase_mtx;
 
 pthread_mutex_t sig_mtx;
 
+pthread_mutex_t chiusura_mtx;
+
 // condition variable
 pthread_cond_t giocatori_cond;
 pthread_cond_t scorer_cond;
 pthread_cond_t coda_cond;
 pthread_cond_t fase_cond;
 pthread_cond_t sig_cond;
+pthread_cond_t chiusura_cond;
 
 // gestione dei segnali
 
@@ -120,7 +125,7 @@ void inizializza_segnali() {
 
     sa_signals.sa_handler = sigclient_handler; // viene gestito dall'handler client
     sa_signals.sa_mask = set;
-    sa_signals.sa_flags = SA_RESTART; // --> capire perché sigint non viene riavviato
+    sa_signals.sa_flags = SA_RESTART;
 
     SYST(sigaction(SIGUSR1, &sa_signals, NULL));
     SYST(sigaction(SIGUSR2, &sa_signals, NULL));
@@ -142,8 +147,121 @@ void inizializza_segnali() {
     SYST(sigaction(SIGALRM, &sa_sigalrm, NULL));
 }
 
-// funzione che si occupa della procedura di pulizia e chiusura
-void chiudi_tutto () {
+void *chiusura (void *args) {
+    int ret;
+    
+    // il thread si risveglia solo quando il processo riceve SIGINT
+    pthread_mutex_lock(&sig_mtx);
+    while (chiudi == 0) {
+        pthread_cond_wait(&sig_cond, &sig_mtx);
+    }
+    pthread_mutex_unlock(&sig_mtx);
+
+    // attesa che tutti i thread abbiano inviato il messaggio al proprio client
+    pthread_mutex_lock(&chiusura_mtx);
+    while (num_chiusure < Threads -> num_thread) {
+        pthread_cond_wait(&chiusura_cond, &chiusura_mtx);
+    }
+    pthread_mutex_unlock(&chiusura_mtx);
+
+    // inviati i messaggi, chiudere i file descriptor e cancellare i thread relativi
+    pthread_mutex_lock(&client_mtx);
+    thread_attivo *tmp = Threads -> head;
+    while (tmp != NULL) {
+        close(tmp -> fd_c);
+        SYST(pthread_cancel(tmp -> t_id));
+        tmp = tmp -> next;
+    }
+
+    pthread_mutex_unlock(&client_mtx);
+
+    printf("inizio della routine di chiusura e pulizia \n");
+
+    // chiudere il gioco
+    SYST(pthread_cancel(gioco_tid));
+
+    // chiudere lo scorer
+    SYST(pthread_cancel(scorer_tid));
+
+    // eliminare la lista delle parole per ogni giocatore
+    giocatore *tmp_g = Giocatori -> head;
+    while (tmp_g != NULL) {
+        if (tmp_g -> parole_trovate) {
+            svuota_lista_parole(tmp_g -> parole_trovate);
+            free(tmp_g -> parole_trovate);
+        }
+        tmp_g = tmp_g -> next;
+    }
+
+    free(tmp_g);
+
+    // eliminare la lista dei giocatori
+    if (Giocatori) {
+        svuota_lista_giocatori(Giocatori);
+        free(Giocatori);
+    }
+
+    // liberare la coda punteggi se era stata riempita
+    if (Punteggi -> num_risultati > 0) {
+        svuota_coda_risultati(Punteggi);
+        free(Punteggi);
+    }
+
+    // eliminare la lista
+    if (Threads) {
+        svuota_lista_thread(Threads);
+        free(Threads);
+    }
+
+    SYST(pthread_mutex_destroy(&client_mtx));
+    SYST(pthread_mutex_destroy(&giocatori_mtx));
+    SYST(pthread_mutex_destroy(&parole_mtx));
+    SYST(pthread_mutex_destroy(&scorer_mtx));
+    SYST(pthread_mutex_destroy(&coda_mtx));
+    SYST(pthread_mutex_destroy(&bacheca_mtx));
+    SYST(pthread_mutex_destroy(&fase_mtx));
+    SYST(pthread_mutex_destroy(&sig_mtx));
+    SYST(pthread_mutex_destroy(&chiusura_mtx));
+
+    SYST(pthread_cond_destroy(&giocatori_cond));
+    SYST(pthread_cond_destroy(&scorer_cond));
+    SYST(pthread_cond_destroy(&coda_cond));
+    SYST(pthread_cond_destroy(&fase_cond));
+    SYST(pthread_cond_destroy(&sig_cond));
+    SYST(pthread_cond_destroy(&chiusura_cond));
+
+    // deallocazione bacheca
+    if (bacheca) {
+        deallocazione_bacheca(bacheca, &n_post);
+    }
+
+    // deallocazione matrice
+    if (matrice) {
+        deallocazione_matrice(matrice);
+    }
+
+    // deallocazione trie
+    if (radice) {
+        deallocazione_trie(radice);
+    }
+
+    // chiudere il socket lato server
+    SYSC(ret, close(fd_server), "Errore nella chiusura del socket");
+
+    pthread_exit(NULL);
+}
+
+// handler per il sigint
+void sigint_handler (int sig) {
+    // setto la flag per la chiusura
+    pthread_mutex_lock(&sig_mtx);
+    chiudi = 1;
+    pthread_cond_signal(&sig_cond);
+    pthread_mutex_unlock(&sig_mtx);
+}
+
+// funzione che si occupa della chiusura e della procedura di pulizia
+/*void sigint_handler (void *args) {
     int ret;
 
     pthread_mutex_lock(&sig_mtx);
@@ -203,7 +321,6 @@ void chiudi_tutto () {
     }
 
     SYST(pthread_mutex_destroy(&client_mtx));
-    SYST(pthread_mutex_destroy(&handler_mtx));
     SYST(pthread_mutex_destroy(&giocatori_mtx));
     SYST(pthread_mutex_destroy(&parole_mtx));
     SYST(pthread_mutex_destroy(&scorer_mtx));
@@ -233,10 +350,10 @@ void chiudi_tutto () {
     // chiudere il socket
     SYSC(ret, close(fd_server), "Errore nella chiusura del socket");
     SYST(pthread_cancel(main_tid));
-}
+}*/
 
 // handler per il sigint
-void sigint_handler (int sig) {
+/*void sigint_handler (int sig) {
     if (sig == SIGINT) {
 
         printf("sigint ricevutooooo \n");
@@ -268,7 +385,7 @@ void sigint_handler (int sig) {
 
         exit(EXIT_SUCCESS);
     }
-}
+}*/
 
 // thread per la gestione dei segnale per i client 
 // produttori sulla variabile per le chiusure e sulla coda dei punteggi
@@ -310,15 +427,37 @@ void sigclient_handler (int sig) {
         pthread_mutex_unlock(&coda_mtx);
     }
     else if (sig == SIGUSR2) {
+        if (chiudi == 0) {
+            printf("ooooooooo ricevuto SIGUSR2 \n");
+            fflush(stdout);
 
-        printf("ooooooooo ricevuto SIGUSR2 \n");
-        fflush(stdout);
+            pthread_mutex_lock(&giocatori_mtx);
+            int fd_c = recupera_fd_giocatore(Giocatori, pthread_self());
+            pthread_mutex_unlock(&giocatori_mtx);
 
-        pthread_mutex_lock(&giocatori_mtx);
-        int fd_c = recupera_fd(Giocatori, pthread_self());
-        pthread_mutex_unlock(&giocatori_mtx);
+            // invio del messaggio con la classifica in CSV
+            prepara_msg(fd_c, MSG_PUNTI_FINALI, classifica);
+        }
+        else {
+            // riutilizzo di SIGUSR2 per inviare il messaggio di chiusura
+            pthread_mutex_lock(&client_mtx);
+            int fd_c = recupera_fd_thread(Threads, pthread_self());
+            pthread_mutex_unlock(&client_mtx);
 
-        prepara_msg(fd_c, MSG_PUNTI_FINALI, classifica);
+            char *msg = "Il server sta chiudendo, disconnessione in corso";
+
+            // invio del messaggio di chiusura al proprio client
+            prepara_msg(fd_c, MSG_SERVER_SHUTDOWN, msg);
+
+            pthread_mutex_lock(&chiusura_mtx);
+
+            // incremento del contatore delle chiusure
+            num_chiusure++;
+            
+            // segnale per togliere dall'attesa il thread di chiusura
+            pthread_cond_signal(&chiusura_cond);
+            pthread_mutex_unlock(&chiusura_mtx);
+        }
     }
 }
 
@@ -450,7 +589,7 @@ void *thread_client (void *args) {
         printf("tipo messaggio: %c \n", richiesta -> type);
         printf("messaggio ricevuto: %s \n", richiesta -> data);
 
-        if (richiesta -> type == MSG_CLIENT_SHUTDOWN) {
+        if (richiesta -> type == MSG_ERR) {
             // se il client invia "fine"
             // eliminare il thread dalla lista dei thread
             pthread_mutex_lock(&client_mtx);
@@ -522,7 +661,7 @@ void *thread_client (void *args) {
             prepara_msg(fd_c, MSG_OK, msg);
             break;
         }
-        else if (richiesta -> data == NULL && richiesta -> type != MSG_REGISTRA_UTENTE && richiesta -> type != MSG_CLIENT_SHUTDOWN) {
+        else if (richiesta -> data == NULL && richiesta -> type != MSG_REGISTRA_UTENTE && richiesta -> type != MSG_ERR) {
             // messaggio non valido
             char *msg = "Messaggio non valido";
             prepara_msg(fd_c, MSG_ERR, msg);
@@ -563,7 +702,7 @@ void *thread_client (void *args) {
 
         richiesta = ricezione_msg(fd_c);
 
-        if (richiesta -> type == MSG_CLIENT_SHUTDOWN) {
+        if (richiesta -> type == MSG_ERR) {
             // se il client invia "fine"
             // eliminare il thread dalla lista dei thread
             printf("chiusura di questo client %ld \n", pthread_self());
@@ -793,7 +932,7 @@ void *gioco (void *args) {
 
         printf("Pausa iniziata!\n");
 
-        sleep(durata_pausa * 60);
+        // sleep(durata_pausa * 60);
 
         pthread_mutex_lock(&fase_mtx);
         while (fase_gioco == 0) {
@@ -864,7 +1003,7 @@ void *gioco (void *args) {
 void *scorer (void *args) {
     while (1) {
         // durante il gioco rimane in attesa con la condition variable
-        // si 'risveglia' quando scatta la pausa (impostata dal gioco con alarm)
+        // si 'risveglia' quando scatta la pausa
         pthread_mutex_lock(&scorer_mtx);
 
         while (partita_finita == 0) {
@@ -956,21 +1095,20 @@ void *scorer (void *args) {
 }
 
     // funzione per la gestione del server
-    void server(char* nome_server, int porta_server) {
-        //descrittori dei socket
-        int fd_client;
+void server(char* nome_server, int porta_server) {
+    //descrittori dei socket
+    int fd_client;
 
-        int ret;
+    int ret;
 
-        struct sockaddr_in ind_server, ind_client;
+    struct sockaddr_in ind_server, ind_client;
 
-        socklen_t len_addr;
+    socklen_t len_addr;
 
-        sigset_t set;
+    sigset_t set;
 
-        printf("ciao sono il server \n");
-
-        // creazione del socket INET restituendo il relativo file descriptor con protocollo TCP
+    printf("ciao sono il server \n");
+    // creazione del socket INET restituendo il relativo file descriptor con protocollo TCP
     SYSC(fd_server, socket(AF_INET, SOCK_STREAM, 0), "Errore nella socket");
 
     // inizializzazione struct ind_server
@@ -991,6 +1129,9 @@ void *scorer (void *args) {
     inizializza_lista_giocatori(&Giocatori);
 
     inizializza_coda_risultati(&Punteggi);
+
+    // creazione del thread di chiusura
+    SYST(pthread_create(&chiusura_tid, NULL, chiusura, NULL));
 
     // creazione del thread per il gioco
     SYST(pthread_create(&gioco_tid, NULL, gioco, NULL));
@@ -1116,8 +1257,6 @@ int main(int argc, char *ARGV[]) {
 
     main_tid = pthread_self();
 
-    signal(SIGPIPE, SIG_IGN);
-
     // inizializzazione dei segnali
     inizializza_segnali();
 
@@ -1135,7 +1274,6 @@ int main(int argc, char *ARGV[]) {
 
     // inizializzazione mutex
     SYST(pthread_mutex_init(&client_mtx, NULL));
-    SYST(pthread_mutex_init(&handler_mtx, NULL));
 
     SYST(pthread_mutex_init(&giocatori_mtx, NULL));
     SYST(pthread_cond_init(&giocatori_cond, NULL));
@@ -1156,9 +1294,10 @@ int main(int argc, char *ARGV[]) {
     SYST(pthread_mutex_init(&sig_mtx, NULL));
     SYST(pthread_cond_init(&sig_cond, NULL));
 
-    server(nome_server, porta_server);
+    SYST(pthread_mutex_init(&chiusura_mtx, NULL));
+    SYST(pthread_cond_init(&chiusura_cond, NULL));
 
-    SYSC(ret, wait(NULL), "Errore nella wait");
+    server(nome_server, porta_server);
 
     return 0;
 }

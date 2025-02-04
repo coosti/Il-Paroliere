@@ -24,6 +24,16 @@ typedef struct {
     int sck;   // puntatore al file descriptor del socket
 } thread_args;
 
+void stampa_comandi();
+
+void comando_non_valido();
+
+int controllo_lunghezza_max (char *argomento, int max_lunghezza);
+
+int controllo_lunghezza_min (char *argomento, int min_lunghezza);
+
+int username_valido (char *nome_utente);
+
 void inizializza_segnali ();
 
 void sigint_handler (int sig);

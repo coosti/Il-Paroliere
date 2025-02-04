@@ -85,6 +85,8 @@ void inserisci_thread (lista_thread *lista, pthread_t tid, int fd);
 
 void rimuovi_thread (lista_thread *lista, pthread_t tid);
 
+int recupera_fd_thread (lista_thread *lista, pthread_t tid);
+
 void svuota_lista_thread (lista_thread *lista);
 
 void invia_sigusr (lista_thread *lista, int segnale);
@@ -102,9 +104,7 @@ char *recupera_username (lista_giocatori *lista, pthread_t tid_sigclient);
 
 int recupera_punteggio (lista_giocatori *lista, pthread_t tid_sigclient);
 
-int recupera_fd (lista_giocatori *lista, pthread_t tid);
-
-int recupera_fd_2 (lista_giocatori *lista, pthread_t tid);
+int recupera_fd_giocatore (lista_giocatori *lista, pthread_t tid);
 
 void resetta_punteggio (lista_giocatori *lista, pthread_t tid_sigclient);
 

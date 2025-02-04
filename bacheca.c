@@ -72,6 +72,15 @@ void inserimento_bacheca(Messaggio bacheca[], char *username, char *msg, int *nu
 
         // shift in avanti -> messaggio in ultima posizione va perso
         for (int i = MAX_MESSAGGI-1; i > 0; i--) {
+
+            if (i == MAX_MESSAGGI - 1) {
+                // deallocazione del messaggio perso
+                char *n = bacheca[i].nome_utente;
+                free(n);
+                char *m = bacheca[i].messaggio;
+                free(m);
+            }
+
             strncpy(bacheca[i].nome_utente, bacheca[i-1].nome_utente, MAX_LUNGHEZZA_USERNAME);
             bacheca[i].nome_utente[MAX_LUNGHEZZA_USERNAME] = '\0';
 
@@ -88,7 +97,6 @@ void inserimento_bacheca(Messaggio bacheca[], char *username, char *msg, int *nu
     }
 }
 
-// stampa della bacheca in csv dopo MSG_SHOW_BACHECA
 void stampa_bacheca(Messaggio bacheca[], int *num_msg) {
 
     for (int i = 0; i < *num_msg; i++) {
@@ -97,6 +105,7 @@ void stampa_bacheca(Messaggio bacheca[], int *num_msg) {
     
 }
 
+// stampa della bacheca in csv dopo MSG_SHOW_BACHECA
 char *bacheca_a_stringa(Messaggio bacheca[], int *num_msg) {
     char *stringa = malloc(MAX_MESSAGGI * (MAX_LUNGHEZZA_USERNAME + MAX_CARATTERI_MESSAGGIO));
     if (stringa == NULL) {
@@ -123,6 +132,3 @@ void deallocazione_bacheca(Messaggio bacheca[], int *num_msg) {
 
     free(bacheca);
 }
-
-
-

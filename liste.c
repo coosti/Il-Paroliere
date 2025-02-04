@@ -109,6 +109,23 @@ void rimuovi_thread (lista_thread *lista, pthread_t tid) {
     }
 }
 
+int recupera_fd_thread (lista_thread *lista, pthread_t tid) {
+    thread_attivo *tmp = lista -> head;
+
+    if (tmp == NULL) {
+        return -1;
+    }
+
+    while (tmp != NULL) {
+        if (pthread_equal(tmp -> t_id, tid)) {
+            return tmp -> fd_c;
+        }
+        tmp = tmp -> next;
+    }
+
+    return -1;
+}
+
 void svuota_lista_thread (lista_thread *lista) {
     
     // due puntatori per scorrere la lista e svuotarla
@@ -251,7 +268,7 @@ int recupera_punteggio (lista_giocatori *lista, pthread_t tid) {
     return -1;
 }
 
-int recupera_fd (lista_giocatori *lista, pthread_t tid) {
+int recupera_fd_giocatore (lista_giocatori *lista, pthread_t tid) {
     giocatore *tmp = lista -> head;
 
     if (tmp == NULL) {

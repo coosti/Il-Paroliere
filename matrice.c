@@ -91,7 +91,7 @@ void inizializzazione_matrice(char **matrice, char *file_matrice){
             pos = ftell(fp);
         }
 
-        // quando si arriva alla fine del file, inizio a generare matrici casuali
+        // quando si arriva alla fine del file, si inizia a generare matrici casuali
         if (i < MAX_CASELLE) {
             matrice_casuale(matrice);
         }
@@ -106,8 +106,6 @@ void inizializzazione_matrice(char **matrice, char *file_matrice){
 
 // funzione ausiliaria ricorsiva
 int ricerca_parola (char **matrice, char *parola, int i_riga, int j_colonna, int r[], int c[], int p, int length, int visitata[MAX_CASELLE][MAX_CASELLE]) {
-    
-    // casi base
 
     // se l'indice corrisponde con la lunghezza della parola -> trovata
     if (p == length) {
@@ -213,6 +211,7 @@ void stampa_matrice_stringa (char *matrice) {
                 printf(" %s ", "Qu");
             }
             else {
+                // conversione del carattere in maiuscolo
                 printf(" %c ", toupper(matrice[k]));
             }
 
@@ -222,6 +221,7 @@ void stampa_matrice_stringa (char *matrice) {
     }
 }
 
+// rendere la matrice una stringa
 char *matrice_a_stringa(char **matrice, char *stringa) {
     int k = 0;
 
