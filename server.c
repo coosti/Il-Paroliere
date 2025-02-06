@@ -260,133 +260,6 @@ void sigint_handler (int sig) {
     pthread_mutex_unlock(&sig_mtx);
 }
 
-// funzione che si occupa della chiusura e della procedura di pulizia
-/*void sigint_handler (void *args) {
-    int ret;
-
-    pthread_mutex_lock(&sig_mtx);
-
-    // attesa mentre il numero di chiusure è minore del numero di thread attivi
-    while (num_chiusure < Threads -> num_thread) {
-        pthread_cond_wait(&sig_cond, &sig_mtx);
-    }
-
-    pthread_mutex_unlock(&sig_mtx);
-
-    // ora può avviare la procedura di chiusura
-
-    // chiudere il gioco
-    SYST(pthread_cancel(gioco_tid));
-
-    // chiudere lo scorer
-    SYST(pthread_cancel(scorer_tid));
-
-    // eliminare la lista delle parole per ogni giocatore
-    giocatore *tmp_g = Giocatori -> head;
-    while (tmp_g != NULL) {
-        if (tmp_g -> parole_trovate) {
-            svuota_lista_parole(tmp_g -> parole_trovate);
-            free(tmp_g -> parole_trovate);
-        }
-        tmp_g = tmp_g -> next;
-    }
-
-    free(tmp_g);
-
-    // eliminare la lista dei giocatori
-    if (Giocatori) {
-        svuota_lista_giocatori(Giocatori);
-        free(Giocatori);
-    }
-
-    // liberare la coda punteggi se era stata riempita
-    if (Punteggi -> num_risultati > 0) {
-        svuota_coda_risultati(Punteggi);
-        free(Punteggi);
-    }
-
-    // chiudere i thread client
-    thread_attivo *tmp = Threads -> head;
-    while (tmp != NULL) {
-        SYST(pthread_cancel(tmp -> t_id));
-        tmp = tmp -> next;
-    }
-
-    free(tmp);
-
-    // eliminare la lista
-    if (Threads) {
-        svuota_lista_thread(Threads);
-        free(Threads);
-    }
-
-    SYST(pthread_mutex_destroy(&client_mtx));
-    SYST(pthread_mutex_destroy(&giocatori_mtx));
-    SYST(pthread_mutex_destroy(&parole_mtx));
-    SYST(pthread_mutex_destroy(&scorer_mtx));
-    SYST(pthread_mutex_destroy(&bacheca_mtx));
-    SYST(pthread_mutex_destroy(&fase_mtx));
-    SYST(pthread_mutex_destroy(&sig_mtx));
-
-    SYST(pthread_cond_destroy(&giocatori_cond));
-    SYST(pthread_cond_destroy(&scorer_cond));
-    SYST(pthread_cond_destroy(&sig_cond));
-
-    // deallocazione bacheca
-    if (bacheca) {
-        deallocazione_bacheca(bacheca, &n_post);
-    }
-
-    // deallocazione matrice
-    if (matrice) {
-        deallocazione_matrice(matrice);
-    }
-
-    // deallocazione trie
-    if (radice) {
-        deallocazione_trie(radice);
-    }
-
-    // chiudere il socket
-    SYSC(ret, close(fd_server), "Errore nella chiusura del socket");
-    SYST(pthread_cancel(main_tid));
-}*/
-
-// handler per il sigint
-/*void sigint_handler (int sig) {
-    if (sig == SIGINT) {
-
-        printf("sigint ricevutooooo \n");
-
-        char *msg = "Il server sta chiudendo, disconnessione in corso";
-
-        // alla ricezione del segnale, inviare il messaggio di chiusura
-        pthread_mutex_lock(&client_mtx);
-
-        // inviare il messaggio di chiusura a tutti i client
-        if (Threads -> num_thread > 0) {
-            thread_attivo *t = Threads -> head;
-
-            while (t != NULL) {
-                prepara_msg(t -> fd_c, MSG_SERVER_SHUTDOWN, msg);
-                close(t -> fd_c);
-                SYST(pthread_cancel(t -> t_id));
-                t = t -> next;
-            }
-        }
-
-        pthread_mutex_unlock(&client_mtx);
-
-        printf("chiusura \n");
-
-        printf("inizio della routine di chiusura e pulizia \n");
-
-        chiudi_tutto();
-
-        exit(EXIT_SUCCESS);
-    }
-}*/
-
 // thread per la gestione dei segnale per i client 
 // produttori sulla variabile per le chiusure e sulla coda dei punteggi
 void sigclient_handler (int sig) {
@@ -586,25 +459,39 @@ void *thread_client (void *args) {
         // (messaggio di aiuto viene gestito nel client)
         richiesta = ricezione_msg(fd_c);
 
-        printf("tipo messaggio: %c \n", richiesta -> type);
-        printf("messaggio ricevuto: %s \n", richiesta -> data);
-
-        if (richiesta -> type == MSG_ERR) {
-            // se il client invia "fine"
+        // chiusura del client senza scrivere fine
+        if (richiesta == NULL) {
             // eliminare il thread dalla lista dei thread
             pthread_mutex_lock(&client_mtx);
             rimuovi_thread(Threads, pthread_self());
             Threads -> num_thread--;
             pthread_mutex_unlock(&client_mtx);
-            
+
             // deallocare la struct dei suoi parametri
             free(params);
 
             // dealloca tutta la memoria allocata fino ad ora
             free(matrice_strng);
             free(Parole_Trovate);
-            
+
             // terminazione del thread
+            pthread_exit(NULL);
+        }
+
+        /*printf("tipo messaggio: %c \n", richiesta -> type);
+        printf("messaggio ricevuto: %s \n", richiesta -> data);*/
+
+        if (richiesta -> type == MSG_ERR) {
+            // se il client invia "fine"
+            pthread_mutex_lock(&client_mtx);
+            rimuovi_thread(Threads, pthread_self());
+            Threads -> num_thread--;
+            pthread_mutex_unlock(&client_mtx);
+            
+            free(params);
+            free(matrice_strng);
+            free(Parole_Trovate);
+            
             pthread_exit(NULL);
         }
         else if (richiesta -> type == MSG_REGISTRA_UTENTE) {
@@ -632,8 +519,6 @@ void *thread_client (void *args) {
 
             // signal per avvisare il gioco di partire
             pthread_cond_signal(&giocatori_cond);
-            printf("segnalato gioco \n");
-
             pthread_mutex_unlock(&giocatori_mtx);
 
             // stampa lista thread
@@ -661,12 +546,10 @@ void *thread_client (void *args) {
             prepara_msg(fd_c, MSG_OK, msg);
             break;
         }
-        else if (richiesta -> data == NULL && richiesta -> type != MSG_REGISTRA_UTENTE && richiesta -> type != MSG_ERR) {
-            // messaggio non valido
-            char *msg = "Messaggio non valido";
-            prepara_msg(fd_c, MSG_ERR, msg);
-            continue;
-        }
+
+        // messaggio non valido
+        char *msg = "Messaggio non valido";
+        prepara_msg(fd_c, MSG_ERR, msg);
 
         // pulire le variabili appena utilizzate per lo scambio di messaggi di questa fase
         if (richiesta -> data) {
@@ -674,6 +557,11 @@ void *thread_client (void *args) {
         }
         free(richiesta);
     }
+
+    if (richiesta -> data) {
+        free(richiesta -> data);
+    }
+    free(richiesta);
 
     // invio della matrice e del tempo
     if (fase_gioco == 0) {
@@ -702,6 +590,35 @@ void *thread_client (void *args) {
 
         richiesta = ricezione_msg(fd_c);
 
+        // chiusura senza scrittura di fine
+        if (richiesta == NULL) {
+            // eliminare lista parole trovate
+            pthread_mutex_lock(&parole_mtx);
+            svuota_lista_parole(player -> parole_trovate);
+            pthread_mutex_unlock(&parole_mtx);
+
+            // eliminare il giocatore dalla lista dei giocatori
+            pthread_mutex_lock(&giocatori_mtx);
+            rimuovi_giocatore(Giocatori, player -> username);
+            Giocatori -> num_giocatori--;
+            pthread_mutex_unlock(&giocatori_mtx);
+
+            pthread_mutex_lock(&client_mtx);
+            rimuovi_thread(Threads, pthread_self());
+            Threads -> num_thread--;
+            pthread_mutex_unlock(&client_mtx);
+
+            // deallocare la struct dei suoi parametri
+            free(params);
+
+            free(matrice_strng);
+            free(bacheca_strng);
+            free(richiesta);
+
+            // terminazione del thread
+            pthread_exit(NULL);
+        }
+
         if (richiesta -> type == MSG_ERR) {
             // se il client invia "fine"
             // eliminare il thread dalla lista dei thread
@@ -725,6 +642,10 @@ void *thread_client (void *args) {
 
             // deallocare la struct dei suoi parametri
             free(params);
+
+            free(matrice_strng);
+            free(bacheca_strng);
+            free(richiesta);
             
             // terminazione del thread
             pthread_exit(NULL);
@@ -782,6 +703,9 @@ void *thread_client (void *args) {
                 if (ricerca_matrice(matrice, p) == 0) {
                     char *msg = "Parola non presente nella matrice";
                     prepara_msg(fd_c, MSG_ERR, msg);
+
+                    free(par);
+
                     continue;
                 }
 
@@ -876,10 +800,10 @@ void *thread_client (void *args) {
                 continue;
             }
         }
-        else if (richiesta == NULL) {
-            printf("Non è arrivato nulla \n");
-            break;
-        }
+
+        // messaggio non valido
+        char *msg = "Messaggio non valido";
+        prepara_msg(fd_c, MSG_ERR, msg);
 
         // appena sono in pausa svuoto la lista di parole
         while (fase_gioco != 1 && player -> parole_trovate -> num_parole > 0) {
@@ -893,9 +817,6 @@ void *thread_client (void *args) {
         }
         free(richiesta);
     }
-
-    free(matrice_strng);
-    free(bacheca_strng);
 
     return NULL;
 }
@@ -976,11 +897,16 @@ void *gioco (void *args) {
 
         giocatore *tmp = Giocatori -> head;
         while (tmp != NULL) {
+            char *tempo = NULL;
+
             prepara_msg(tmp -> fd_c, MSG_OK, msg);
             prepara_msg(tmp -> fd_c, MSG_MATRICE, matrice_strng);
-            prepara_msg(tmp -> fd_c, MSG_TEMPO_PARTITA, tempo_rimanente(tempo_gioco,durata_gioco));
+            tempo = tempo_rimanente(tempo_gioco, durata_gioco);
+            prepara_msg(tmp -> fd_c, MSG_TEMPO_PARTITA, tempo);
 
             tmp = tmp -> next;
+
+            free(tempo);
         }
         printf("matrice inviata \n");
         pthread_mutex_unlock(&giocatori_mtx);

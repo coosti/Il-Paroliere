@@ -29,10 +29,14 @@ int fd_client;
 
 thread_args *comunicazione;
 
+// variabile globale per determinare se la chiusura è da parte del client stesso o dovuta al server
+// 0 = chiude il client, 1 = chiude il server
+int chi_chiude = 0;
+
 char *PAROLIERE = "[PROMPT PAROLIERE] --> ";
 
 void stampa_comandi() {
-    printf("\ncomandi disponibili: \n"
+    printf("\nComandi disponibili: \n"
             "\t aiuto - richiedere i comandi disponibili \n"
             "\t registra_utente <nome_utente> - registrazione al gioco \n"
             "\t matrice - richiedere la matrice corrente e il tempo\n"
@@ -42,12 +46,14 @@ void stampa_comandi() {
             "\t classifica - richiedere la classifica \n"
             "\t fine - uscire dal gioco \n"
             "\n");
+    fflush(stdout);
 }
 
 void comando_non_valido() {
-    printf("richiesta non valida! \n"
-            "per visualizzare i comandi, digitare 'aiuto' \n"
-            "[PROMPT PAROLIERE] -->  \n");
+    printf("\nRichiesta non valida! \n"
+            "Per visualizzare i comandi, digitare 'aiuto' \n"
+            "\n");
+    fflush(stdout);
 }
 
 int controllo_lunghezza_max (char *argomento, int max_lunghezza) {
@@ -87,7 +93,7 @@ void inizializza_segnali () {
     // handler per sigint
     sa_int.sa_handler = sigint_handler;
     sigemptyset(&sa_int.sa_mask);
-    sa_int.sa_flags = 0; // 0 dato che sono segnali per la chiusura, non voglio che vengano riavviati
+    sa_int.sa_flags = 0; // 0 dato che sono segnali per la chiusura, non si vuole riavviare
     SYST(sigaction(SIGINT, &sa_int, NULL));
 
     // handler per sigusr1
@@ -105,20 +111,15 @@ void inizializza_segnali () {
 
 // handler per sigint -> chiusura del client
 void sigint_handler (int sig) {
-    int ret; 
-    printf("sigint ricevuto devo chiudere \n");
+    int ret;
+
+    prepara_msg(fd_client, MSG_ERR, NULL);
 
     // eliminare thread invio
-    //SYST(pthread_kill(comunicazione[0].t_id, SIGUSR1));
     SYST(pthread_cancel(comunicazione[0].t_id));
 
     // eliminare thread ricezione
-    //SYST(pthread_kill(comunicazione[1].t_id, SIGUSR2));
     SYST(pthread_cancel(comunicazione[1].t_id));
-
-    // attesa terminazione thread
-    /*SYST(pthread_join(comunicazione[0].t_id, NULL));
-    SYST(pthread_join(comunicazione[1].t_id, NULL));*/
 
     // liberare struct comunicazione dei thread
     if (comunicazione != NULL) {
@@ -131,10 +132,10 @@ void sigint_handler (int sig) {
 
 // handler per sigusr1
 void invio_handler (int sig) {
-    printf("ricevuto sigusr1 \n");
-
-    // inviare messaggio di chiusura al server
-    prepara_msg(fd_client, MSG_ERR, NULL);
+    if (chi_chiude == 0) {
+        // inviare messaggio di chiusura al server
+        prepara_msg(fd_client, MSG_ERR, NULL);
+    }
 
     // terminazione
     pthread_exit(NULL);
@@ -143,8 +144,6 @@ void invio_handler (int sig) {
 
 // handler per sigusr2
 void ricezione_handler (int sig) {
-    printf("ricevuto sigusr2 \n");
-
     // non deve fare nulla perché non deve più ricevere
     
     // terminazione
@@ -167,9 +166,8 @@ void *invio_client (void *args) {
     sigaddset(&set, SIGUSR1);
     SYST(pthread_sigmask(SIG_UNBLOCK, &set, NULL));
 
-    printf("ciao sono thread invio tid: %ld \n", pthread_self());
-
     while (1) {
+
         // lettura da standard input 
         char buffer[MAX_LUNGHEZZA_STDIN];
         ssize_t n_read;
@@ -206,24 +204,21 @@ void *invio_client (void *args) {
                 continue;
             }
             else if (!(controllo_lunghezza_min(argomento, MIN_LUNGHEZZA_USERNAME))) {
-                printf("nome utente troppo corto! \n"
-                        "deve avere almeno %d caratteri \n"
-                        "%s \n", MIN_LUNGHEZZA_USERNAME, PAROLIERE);
+                printf("\nNome utente troppo corto! \n"
+                        "Deve avere almeno %d caratteri \n"
+                        "\n", MIN_LUNGHEZZA_USERNAME);
             }
             else if (!(controllo_lunghezza_max(argomento, MAX_LUNGHEZZA_USERNAME))) {
-                printf("nome utente troppo lungo! \n"
-                        "deve avere massimo %d caratteri \n"
-                        "%s \n", MAX_LUNGHEZZA_USERNAME, PAROLIERE);
+                printf("\nNome utente troppo lungo! \n"
+                        "Deve avere massimo %d caratteri \n"
+                        "\n", MAX_LUNGHEZZA_USERNAME);
             }
             else if (!(username_valido(argomento))) {
-                printf("nome utente non valido! \n"
-                        "deve essere tutto minuscolo e contenere solo caratteri alfanumerici \n"
-                        "%s \n", PAROLIERE);
+                printf("\nNome utente non valido! \n"
+                        "Deve essere tutto minuscolo e contenere solo caratteri alfanumerici \n"
+                        "\n");
             }
             else {
-
-                printf("nome utente valido! %s \n", argomento);
-
                 // se il nome utente è valido invio il messaggio con l'username
                 prepara_msg(fd_c, MSG_REGISTRA_UTENTE, argomento);
 
@@ -254,13 +249,13 @@ void *invio_client (void *args) {
             }
 
             if (strlen(argomento) == 0) {
-                printf("messaggio vuoto! \n"
-                        "%s \n", PAROLIERE);
+                printf("\nMessaggio vuoto!\n"
+                        "\n");
             }
             else if (!(controllo_lunghezza_max(argomento, MAX_CARATTERI_MESSAGGIO))) {
-                printf("messaggio troppo lungo! \n"
-                        "massimo %d caratteri \n"
-                        "%s \n", MAX_CARATTERI_MESSAGGIO, PAROLIERE);
+                printf("\nMessaggio troppo lungo!\n"
+                        "Massimo %d caratteri \n"
+                        "\n", MAX_CARATTERI_MESSAGGIO);
             }
             else {
                 // se il messaggio è valido lo invio
@@ -290,9 +285,13 @@ void *invio_client (void *args) {
             }
             else if (!(controllo_lunghezza_min(argomento, MIN_LUNGHEZZA_PAROLA))) {
                 // se la parola ha meno di 4 caratteri -> errore
-                printf("parola troppo corta \n"
-                        "deve avere almeno %d caratteri \n"
-                        "%s \n", MIN_LUNGHEZZA_PAROLA, PAROLIERE);
+                printf("\nParola troppo corta \n"
+                        "Deve avere almeno %d caratteri \n"
+                        "\n", MIN_LUNGHEZZA_PAROLA);
+                fflush(stdout);
+
+                free(msg_stdin);
+                continue;
             }
             else {
                 // se la parola è lunga almeno 4 caratteri, allora invio al server
@@ -313,7 +312,10 @@ void *invio_client (void *args) {
             // avvisare il thread ricezione
             SYST(pthread_kill(comunicazione[1].t_id, SIGUSR2));
 
-            break;
+            // chiudere il socket
+            SYSC(ret, close(fd_c), "Errore nella chiusura del socket");
+
+            pthread_exit(NULL);
         }
         else {
             // è stato inserito un comando non valido
@@ -323,13 +325,6 @@ void *invio_client (void *args) {
 
         memset(buffer, 0, MAX_LUNGHEZZA_STDIN);
     }
-
-    // chiudere il socket
-    SYSC(ret, close(fd_c), "Errore nella chiusura del socket");
-
-    printf("ciao mi sto chiudendo invio \n");
-
-    pthread_exit(NULL);
 }
 
 // thread per ricevere messaggi dal server
@@ -349,59 +344,82 @@ void *ricezione_client (void *args) {
 
     Msg_Socket *risposta = NULL;
 
-    printf("ciao sono io ricevitore tid: %ld \n", pthread_self());
-
     // attesa della risposta dal server
     while (1) {
-        // se la risposta non è valida, la ignoro
-        printf("%s \n", PAROLIERE);
 
         risposta = ricezione_msg(fd_c);
 
         if (risposta == NULL) {
             printf("Il server si sta chiudendo... \n");
 
+            // impostare la variabile a 1 dato che la chiusura è del server
+            chi_chiude = 1;
+
             // avvisare thread invio per chiusura pulita
             SYST(pthread_kill(comunicazione[0].t_id, SIGUSR1));
 
-            close(fd_c);
+            SYSC(ret, close(fd_c), "Errore nella chiusura del socket");
+
             pthread_exit(NULL);
         }
 
-        if (risposta -> type == MSG_OK) {
-            printf("%s \n", risposta->data);
+        if (risposta -> type == MSG_SERVER_SHUTDOWN) {
+            // il server si sta chiudendo, devo chiudere anche io client
+            printf("Il server si sta chiudendo... \n");
+
+            chi_chiude = 1;
+
+            // avvisare thread invio per chiusura pulita
+            SYST(pthread_kill(comunicazione[0].t_id, SIGUSR1));
+            
+            free(risposta);
+
+            // chiudere il socket
+            SYSC(ret, close(fd_c), "Errore nella chiusura del socket");
+
+            pthread_exit(NULL);                       
+        }
+        else if (risposta -> type == MSG_OK) {
+            printf("\n%s\n", risposta->data);
+            fflush(stdout);
         }
         else if (risposta -> type == MSG_ERR) {
-            printf("%s\n", risposta->data);
+            printf("\n%s\n", risposta->data);
+            fflush(stdout);
         }
         else if (risposta -> type == MSG_MATRICE) {
             // stampa della matrice
-            printf("Matrice di gioco: \n");
+            printf("\nMatrice di gioco: \n");
             stampa_matrice_stringa(risposta->data);
         }
         else if (risposta -> type == MSG_TEMPO_PARTITA) {
             // stampa del tempo rimanente
-            printf("Mancano %s secondi alla fine della partita \n", risposta->data);
+            printf("\nMancano %s secondi alla fine della partita \n"
+                    "\n", risposta->data);
         }
         else if (risposta -> type == MSG_TEMPO_ATTESA) {
             // stampa del tempo della pausa
-            printf("Mancano %s secondi all'inizio della partita \n", risposta->data);
+            printf("\nMancano %s secondi all'inizio della partita \n"
+                    "\n", risposta->data);
         }
         else if (risposta -> type == MSG_PUNTI_PAROLA) {
             // stampa punteggio parola -> funzione ????
-            printf("Hai ottenuto %s punti \n", risposta->data);
+            printf("\nHai ottenuto %s punti \n"
+                    "\n", risposta->data);
         }
         else if (risposta -> type == MSG_PUNTI_FINALI) {
             // stampa della classifica
             int i = 1;
 
-            printf("Classifica finale: \n");
+            printf("\nClassifica finale: \n");
+            fflush(stdout);
             char *token = strtok(risposta->data, "\n");
 
-            printf("Il vincitore è: %s \n", token);
+            printf("Il vincitore è -> %s \n", token);
+            fflush(stdout);
 
             while (token != NULL) {
-                printf(" %d %s \n", i, token);
+                printf(" %d - %s \n", i, token);
 
                 token = strtok(NULL, "\n");
 
@@ -410,39 +428,24 @@ void *ricezione_client (void *args) {
         }
         else if (risposta -> type == MSG_SHOW_BACHECA) {
             if (risposta -> length == 0) {
-                printf("Bacheca vuota! \n");
+                printf("\nBacheca vuota! \n");
+                fflush(stdout);
             }
             else {
-                printf("Bacheca messaggi: \n");
+                printf("\nBacheca messaggi: \n");
                 // stampa della bacheca
                 printf("%s \n", risposta->data);
+                fflush(stdout);
             }
         }
-        else if (risposta -> type == MSG_SERVER_SHUTDOWN) {
-            // il server si sta chiudendo, devo chiudere anche io client
-            printf("Il server si sta chiudendo... \n");
-
-            // avvisare thread invio per chiusura pulita
-            SYST(pthread_kill(comunicazione[0].t_id, SIGUSR1));
-
-            break;                       
-        }
         else {
-            printf("Risposta non valida! \n");
+            printf("\nRisposta non valida! \n");
+            fflush(stdout);
             continue;
         }
 
         free(risposta->data);
     }
-
-    free(risposta);
-
-    // chiudere il socket
-    SYSC(ret, close(fd_c), "Errore nella chiusura del socket");
-
-    printf("ciao mi sto chiudendo ricezione \n");
-
-    pthread_exit(NULL);
 }
 
 void client (char* nome_server, int porta_server) {
@@ -462,25 +465,32 @@ void client (char* nome_server, int porta_server) {
 }
 
 int main(int argc, char *ARGV[]) {
-    int ret;
-
     char *nome_server;
     int porta_server;
 
     if (argc != 3) {
         printf("Errore! Parametri: %s nome_server porta_server \n", ARGV[0]);
+        fflush(stdout);
         exit(EXIT_FAILURE);
     }
 
     nome_server = ARGV[1];
     porta_server = atoi(ARGV[2]);
 
+    inizializza_segnali();
+
     // creazione socket client
     client(nome_server, porta_server);
 
     // prompt e display dei comandi
-    char *msg = "Benvenuto! \n";
-    SYSC(ret, write(STDOUT_FILENO, msg, strlen(msg)), "Errore nella write");
+    printf("%s", "Benvenuto nel gioco del Paroliere! \n");
+    fflush(stdout);
+
+    printf("%s", "Per visualizzare i comandi disponibili, digitare 'aiuto' \n");
+    fflush(stdout);
+
+    printf("%s", PAROLIERE);
+    fflush(stdout);
 
     // allocazione spazio per la struct per i thread invio e ricezione
     SYSCN(comunicazione, (thread_args*)malloc(NUM_THREAD * sizeof(thread_args)), "Errore nella malloc");
@@ -500,8 +510,6 @@ int main(int argc, char *ARGV[]) {
     // attesa terminazione thread
     SYST(pthread_join(comunicazione[0].t_id, NULL));
     SYST(pthread_join(comunicazione[1].t_id, NULL));
-
-    free(comunicazione);
 
     return 0;
 }
