@@ -27,6 +27,7 @@
 
 // variabili globali
 
+// tid
 pthread_t main_tid;
 pthread_t scorer_tid;
 pthread_t gioco_tid;
@@ -65,17 +66,24 @@ int chiudi = 0;
 int num_chiusure = 0;
 
 // strutture dati globali
+
+// trie
 Trie *radice = NULL;
 
+// bacheca + inizializzazione del numero di messaggi presenti
 Messaggio *bacheca;
 int n_post = 0;
 
+// matrice come array di stringhe
 char **matrice;
 
+// lista dei thread
 lista_thread *Threads;
 
+// lista dei giocatori
 lista_giocatori *Giocatori;
 
+// coda dei punteggi
 coda_risultati *Punteggi;
 
 // classifica
@@ -85,17 +93,11 @@ char classifica[MAX_DIM];
 pthread_mutex_t client_mtx;
 pthread_mutex_t giocatori_mtx;
 pthread_mutex_t parole_mtx;
-
 pthread_mutex_t scorer_mtx;
-
 pthread_mutex_t coda_mtx;
-
 pthread_mutex_t bacheca_mtx;
-
 pthread_mutex_t fase_mtx;
-
 pthread_mutex_t sig_mtx;
-
 pthread_mutex_t chiusura_mtx;
 
 // condition variable
@@ -118,38 +120,52 @@ void inizializza_segnali() {
     // inizializzazione della maschera
     sigemptyset(&set);
 
+    // aggiunta di SIGURS1 e SIGUSR2 alla maschera
     SYSC(ret, sigaddset(&set, SIGUSR1), "Errore nell'aggiunta di SIGUSR1 alla maschera");
     SYSC(ret, sigaddset(&set, SIGUSR2), "Errore nell'aggiunta di SIGUSR2 alla maschera");
 
+    // blocco dei segnali SIGUSR1 e SIGUSR2 a livello di processo -> vengono poi sbloccati nei singoli thread client
     pthread_sigmask(SIG_BLOCK, &set, NULL);
 
     sa_signals.sa_handler = sigclient_handler; // viene gestito dall'handler client
     sa_signals.sa_mask = set;
     sa_signals.sa_flags = SA_RESTART;
 
+    // associazione del set con handler, maschera e flag ai segnali SIGUSR1 e SIGUSR2
     SYST(sigaction(SIGUSR1, &sa_signals, NULL));
     SYST(sigaction(SIGUSR2, &sa_signals, NULL));
 
+    // 'pulizia' della maschera per aggiungere SIGINT
     sigemptyset(&set);
-    sa_sigint.sa_handler = sigint_handler; 
-    sa_sigint.sa_mask = set;
-    sa_sigint.sa_flags = 0; // 0 per non riavviare
 
+    // aggiunta di SIGINT alla maschera
+    SYSC(ret, sigaddset(&set, SIGINT), "Errore nell'aggiunta di SIGINT alla maschera");
+
+    sa_sigint.sa_handler = sigint_handler; // assegnazione dell'handler
+    sa_sigint.sa_mask = set;
+    sa_sigint.sa_flags = 0; // 0 per non far riavviare le system calls interrotte
+
+    // configurazione del set per SIGINT
     SYST(sigaction(SIGINT, &sa_sigint, NULL));
 
-    // configurazione di SIGALRM
+    // pulizia della maschera per configurare SIGALRM
     sigemptyset(&set);
 
-    sa_sigalrm.sa_handler = sigalrm_handler; // viene gestito dall'handler
+    // aggiunta di SIGALRM alla maschera
+    SYSC(ret, sigaddset(&set, SIGALRM), "Errore nell'aggiunta di SIGALRM alla maschera");
+
+    // blocco di SIGALRM per processo -> viene sbloccato nel thread di gioco
+    pthread_sigmask(SIG_BLOCK, &set, NULL);
+
+    sa_sigalrm.sa_handler = sigalrm_handler; // assegnazione dell'handler
     sa_sigalrm.sa_mask = set;
     sa_sigalrm.sa_flags = SA_RESTART;      // per riavviare le chiamate interrotte
 
+    // configurazione del set per SIGALRM
     SYST(sigaction(SIGALRM, &sa_sigalrm, NULL));
 }
 
 void *chiusura (void *args) {
-    int ret;
-    
     // il thread si risveglia solo quando il processo riceve SIGINT
     pthread_mutex_lock(&sig_mtx);
     while (chiudi == 0) {
@@ -157,49 +173,65 @@ void *chiusura (void *args) {
     }
     pthread_mutex_unlock(&sig_mtx);
 
-    // attesa che tutti i thread abbiano inviato il messaggio al proprio client
-    pthread_mutex_lock(&chiusura_mtx);
-    while (num_chiusure < Threads -> num_thread) {
-        pthread_cond_wait(&chiusura_cond, &chiusura_mtx);
+    if (Threads -> num_thread > 0) {
+        // attesa che tutti i thread abbiano inviato il messaggio al proprio client
+        pthread_mutex_lock(&chiusura_mtx);
+        while (num_chiusure < Threads -> num_thread) {
+            pthread_cond_wait(&chiusura_cond, &chiusura_mtx);
+        }
+        pthread_mutex_unlock(&chiusura_mtx);
+
+        // inviati i messaggi, chiudere i file descriptor e cancellare i thread relativi
+        pthread_mutex_lock(&client_mtx);
+        thread_attivo *tmp = Threads -> head;
+        while (tmp != NULL) {
+            close(tmp -> fd_c);
+            SYST(pthread_cancel(tmp -> t_id));
+            tmp = tmp -> next;
+        }
     }
-    pthread_mutex_unlock(&chiusura_mtx);
 
-    // inviati i messaggi, chiudere i file descriptor e cancellare i thread relativi
-    pthread_mutex_lock(&client_mtx);
-    thread_attivo *tmp = Threads -> head;
-    while (tmp != NULL) {
-        close(tmp -> fd_c);
-        SYST(pthread_cancel(tmp -> t_id));
-        tmp = tmp -> next;
-    }
+    // eliminare la lista
+    svuota_lista_thread(Threads);
+    free(Threads);
 
-    pthread_mutex_unlock(&client_mtx);
+    pthread_exit(NULL);
+}
 
-    printf("inizio della routine di chiusura e pulizia \n");
+// handler per il sigint
+void sigint_handler (int sig) {
+    int ret;
 
-    // chiudere il gioco
+    // setto la flag per la chiusura
+    pthread_mutex_lock(&sig_mtx);
+    chiudi = 1;
+    pthread_cond_signal(&sig_cond);
+    pthread_mutex_unlock(&sig_mtx);
+
+    // chiusura del gioco
     SYST(pthread_cancel(gioco_tid));
 
-    // chiudere lo scorer
+    // chiusura dello scorer
     SYST(pthread_cancel(scorer_tid));
 
-    // eliminare la lista delle parole per ogni giocatore
-    giocatore *tmp_g = Giocatori -> head;
-    while (tmp_g != NULL) {
-        if (tmp_g -> parole_trovate) {
-            svuota_lista_parole(tmp_g -> parole_trovate);
-            free(tmp_g -> parole_trovate);
+    // eliminare la lista delle parole associata ad ogni giocatore
+    if (Giocatori -> num_giocatori > 0) {
+        pthread_mutex_lock(&giocatori_mtx);
+        giocatore *tmp_g = Giocatori -> head;
+        while (tmp_g != NULL) {
+            if (tmp_g -> parole_trovate) {
+                svuota_lista_parole(tmp_g -> parole_trovate);
+                free(tmp_g -> parole_trovate);
+            }
+            tmp_g = tmp_g -> next;
         }
-        tmp_g = tmp_g -> next;
-    }
+        pthread_mutex_unlock(&giocatori_mtx);
 
-    free(tmp_g);
-
-    // eliminare la lista dei giocatori
-    if (Giocatori) {
-        svuota_lista_giocatori(Giocatori);
-        free(Giocatori);
+        free(tmp_g);
     }
+    
+    svuota_lista_giocatori(Giocatori);
+    free(Giocatori);
 
     // liberare la coda punteggi se era stata riempita
     if (Punteggi -> num_risultati > 0) {
@@ -207,13 +239,8 @@ void *chiusura (void *args) {
         free(Punteggi);
     }
 
-    // eliminare la lista
-    if (Threads) {
-        svuota_lista_thread(Threads);
-        free(Threads);
-    }
-
-    SYST(pthread_mutex_destroy(&client_mtx));
+    // deallocazione di mutex e condition variable
+    /*SYST(pthread_mutex_destroy(&client_mtx));
     SYST(pthread_mutex_destroy(&giocatori_mtx));
     SYST(pthread_mutex_destroy(&parole_mtx));
     SYST(pthread_mutex_destroy(&scorer_mtx));
@@ -228,7 +255,7 @@ void *chiusura (void *args) {
     SYST(pthread_cond_destroy(&coda_cond));
     SYST(pthread_cond_destroy(&fase_cond));
     SYST(pthread_cond_destroy(&sig_cond));
-    SYST(pthread_cond_destroy(&chiusura_cond));
+    SYST(pthread_cond_destroy(&chiusura_cond));*/
 
     // deallocazione bacheca
     if (bacheca) {
@@ -248,26 +275,14 @@ void *chiusura (void *args) {
     // chiudere il socket lato server
     SYSC(ret, close(fd_server), "Errore nella chiusura del socket");
 
-    pthread_exit(NULL);
+    exit(EXIT_SUCCESS);
 }
 
-// handler per il sigint
-void sigint_handler (int sig) {
-    // setto la flag per la chiusura
-    pthread_mutex_lock(&sig_mtx);
-    chiudi = 1;
-    pthread_cond_signal(&sig_cond);
-    pthread_mutex_unlock(&sig_mtx);
-}
-
-// thread per la gestione dei segnale per i client 
+// handler per la gestione dei segnale per i client 
 // produttori sulla variabile per le chiusure e sulla coda dei punteggi
 void sigclient_handler (int sig) {
     if (sig == SIGUSR1) {
         // alla ricezione del segnale, il thread deve mettere il punteggio del giocatore sulla coda condivisa
-            
-        printf("ciao ricevuto SIGUSR1!!!!! \n");
-        fflush(stdout);
 
         // recuperare username e punteggio dalla lista dei giocatori tramite il tid del thread
         // viene acquisita la mutex sulla lista giocatori
@@ -275,9 +290,6 @@ void sigclient_handler (int sig) {
 
         char *username = recupera_username(Giocatori, pthread_self());
         int punteggio = recupera_punteggio(Giocatori, pthread_self());
-
-        printf("username: %s \n", username);
-        printf("punteggio: %d \n", punteggio);
 
         // resettare il punteggio del giocatore per prepararsi alla prossima partita
         resetta_punteggio(Giocatori, pthread_self());
@@ -301,8 +313,6 @@ void sigclient_handler (int sig) {
     }
     else if (sig == SIGUSR2) {
         if (chiudi == 0) {
-            printf("ooooooooo ricevuto SIGUSR2 \n");
-            fflush(stdout);
 
             pthread_mutex_lock(&giocatori_mtx);
             int fd_c = recupera_fd_giocatore(Giocatori, pthread_self());
@@ -343,8 +353,6 @@ void sigalrm_handler (int sig) {
         fase_gioco = 0;
         pthread_mutex_unlock(&fase_mtx);
 
-        printf("GIOCO FINITOOOOO!!! \n");
-
         // avviso allo scorer per farlo risvegliare
         pthread_mutex_lock(&scorer_mtx);
         partita_finita = 1;
@@ -358,7 +366,7 @@ void sigalrm_handler (int sig) {
             pthread_mutex_unlock(&client_mtx);
         }
 
-        printf("Segnali inviati \n");
+        printf("Segnale inviato \n");
     }
     else {
         // se è finita la pausa, rimettere il gioco in corso
@@ -368,7 +376,7 @@ void sigalrm_handler (int sig) {
     }
 }
 
-// funzioni
+// funzioni di utilità
 
 // caricamento del dizionario nel trie
 void caricamento_dizionario(char *file_dizionario, Trie *radice) {
@@ -393,20 +401,19 @@ void caricamento_dizionario(char *file_dizionario, Trie *radice) {
 // calcolo del tempo rimanente
 char *tempo_rimanente(time_t tempo, int minuti) {
     time_t tempo_attuale = time(NULL);
-
-    double tempo_trascorso = difftime(tempo_attuale, tempo);
+    time_t trascorso = tempo_attuale - tempo;
 
     // conversione in secondi
-    int in_secondi = minuti * 60;
+    time_t in_secondi = (time_t)minuti * 60;
 
     // calcolo del tempo rimanente
-    double rimanente = in_secondi - tempo_trascorso;
+    time_t rimanente = in_secondi - trascorso;
 
-    // restituire come stringa (per il messaggio)
+    // allocazione della stringa per restituire il tempo rimanente
     char *t;
     SYSCN(t, (char*)malloc(50 * sizeof(char)), "Errore nell'allocazione della stringa per il tempo rimanente");
 
-    sprintf(t, "%d", (int)rimanente);
+    sprintf(t, "%ld", (long)rimanente);
 
     return t;
 }
@@ -425,12 +432,18 @@ void *thread_client (void *args) {
     sigset_t set_client;
     sigemptyset(&set_client);
 
-    // alla maschera si aggiungono anche i segnali personalizzati
+    // alla maschera si aggiungono i segnali personalizzati
     sigaddset(&set_client, SIGUSR1);
     sigaddset(&set_client, SIGUSR2);
 
-    // Sbloccare i segnali della maschera per thread_client
+    // sbloccare i segnali della maschera per thread_client
     SYST(pthread_sigmask(SIG_UNBLOCK, &set_client, NULL));
+
+    // allo stesso modo si blocca il sigint in modo che venga gestito solo dal main thread
+    sigset_t set_client_int;
+    sigemptyset(&set_client_int);
+    sigaddset(&set_client_int, SIGINT);
+    SYST(pthread_sigmask(SIG_BLOCK, &set_client_int, NULL));
 
     // giocatore associato al thread
     giocatore *player = NULL;
@@ -442,15 +455,12 @@ void *thread_client (void *args) {
 
     char *tempo = NULL;
 
-    // alloco una stringa per la matrice
-    // (*2 per lo spazio tra le lettere)
+    // allocazione della stringa per la matrice
     char *matrice_strng;
     size_t dim = MAX_CASELLE * MAX_CASELLE * 2;
     SYSCN(matrice_strng, malloc(dim * sizeof(char)), "Errore nell'allocazione della stringa per la matrice");
 
     char *bacheca_strng = NULL;
-
-    printf("ciao sono thread client tid: %ld \n", pthread_self());
 
     // tutto il processo di gestione del client viene eseguito fino a quando non si chiude il client stesso
     
@@ -521,25 +531,7 @@ void *thread_client (void *args) {
             pthread_cond_signal(&giocatori_cond);
             pthread_mutex_unlock(&giocatori_mtx);
 
-            // stampa lista thread
-            printf("quali thread ci sono fino ad ora? \n");
-            pthread_mutex_lock(&client_mtx);
-            thread_attivo *tmp_tt = Threads -> head;
-            while (tmp_tt != NULL) {
-                printf("thread: %ld \n", tmp_tt -> t_id);
-                tmp_tt = tmp_tt -> next;
-            }
-            pthread_mutex_unlock(&client_mtx);
-            free(tmp_tt);
-
-            pthread_mutex_lock(&giocatori_mtx);
-            giocatore *tmp_gg = Giocatori -> head;
-            while (tmp_gg != NULL) {
-                printf("giocatore: %s \n", tmp_gg -> username);
-                tmp_gg = tmp_gg -> next;
-            }
-            pthread_mutex_unlock(&giocatori_mtx);
-            free(tmp_gg);
+            printf("Giocatore %s del thread %ld registrato \n", nome_utente, pthread_self());
 
             // inviare messaggio di avvenuta registrazione
             char *msg = "Registrazione avvenuta con successo, sei pronto a giocare?";
@@ -622,7 +614,7 @@ void *thread_client (void *args) {
         if (richiesta -> type == MSG_ERR) {
             // se il client invia "fine"
             // eliminare il thread dalla lista dei thread
-            printf("chiusura di questo client %ld \n", pthread_self());
+            printf("Chiusura di questo client %ld \n", pthread_self());
 
             // eliminare lista parole trovate
             pthread_mutex_lock(&parole_mtx);
@@ -675,8 +667,6 @@ void *thread_client (void *args) {
                 char *par;
                 SYSCN(par, (char*)malloc((len + 1)), "Errore nell'allocazione della parola");
                 int i = 0, j = 0;
-
-                printf("parola: %s \n", p);
 
                 // prima di ricercare nella matrice togliere eventuali occorrenze di "qu"
                 if (strstr(p, "qu")) {
@@ -830,8 +820,6 @@ void *gioco (void *args) {
     sigaddset(&set, SIGALRM);
     pthread_sigmask(SIG_UNBLOCK, &set, NULL);
 
-    printf("ciao sono thread gioco tid: %ld \n", pthread_self());
-
     while (1) {
         // se c'è almeno un giocatore, inizia una pausa iniziale
         pthread_mutex_lock(&giocatori_mtx);
@@ -841,7 +829,6 @@ void *gioco (void *args) {
 
             while (Giocatori -> num_giocatori < 1) {
                 pthread_cond_wait(&giocatori_cond, &giocatori_mtx);
-                printf("risvegliato \n");
             }   
         }
 
@@ -851,7 +838,7 @@ void *gioco (void *args) {
         time(&tempo_pausa);
         alarm(durata_pausa * 60);
 
-        printf("Pausa iniziata!\n");
+        printf("Pausa iniziata! \n");
 
         // sleep(durata_pausa * 60);
 
@@ -865,15 +852,15 @@ void *gioco (void *args) {
 
         // quando finisce la pausa viene inviato un SIGALRM che imposta fase_gioco a 1
 
-        printf("pausa finitaaaaa \n");
+        printf("Pausa finita! \n");
 
-        printf("ora deve iniziare il gioco \n");
+        printf("Ora deve iniziare il gioco \n");
 
         // avvio del timer per la durata del gioco
         time(&tempo_gioco);
         alarm(durata_gioco * 60);
 
-        printf("Gioco iniziato!\n");
+        printf("Gioco iniziato! \n");
 
         // capire se devo inviare la matrice casuale o la matrice inizializzata da file
         if (data_filename == NULL) {
@@ -887,8 +874,6 @@ void *gioco (void *args) {
         SYSCN(matrice_strng, malloc(MAX_CASELLE * MAX_CASELLE * 2 + 1), "Errore nell'allocazione della stringa per la matrice");
 
         matrice_strng = matrice_a_stringa(matrice, matrice_strng);
-
-        printf("sto x inviare matrice \n");
 
         char *msg = "Il gioco è iniziato, buona fortuna!";
 
@@ -908,7 +893,7 @@ void *gioco (void *args) {
 
             free(tempo);
         }
-        printf("matrice inviata \n");
+        printf("Matrice inviata \n");
         pthread_mutex_unlock(&giocatori_mtx);
 
         sleep(durata_gioco * 60);
@@ -917,7 +902,7 @@ void *gioco (void *args) {
 
         // quando finisce il gioco parte la alrm -> i thread client diventano produttori sulla coda punteggi
 
-        printf("Gioco finito!\n");
+        printf("Gioco finito! \n");
 
         free(matrice_strng);
     }
@@ -940,8 +925,6 @@ void *scorer (void *args) {
         partita_finita = 0;
         pthread_mutex_unlock(&scorer_mtx);
 
-        printf("ciao sono lo scorer %ld \n", pthread_self());
-
         // pulizia della classifica
         memset(classifica, 0, sizeof(classifica));
 
@@ -957,8 +940,6 @@ void *scorer (void *args) {
             pthread_cond_wait(&coda_cond, &coda_mtx);
         }
 
-        printf("ora ho i punteggi \n");
-
         // array per memorizzare temporaneamente i dati della coda
         punteggi tmp[n];
         memset(tmp, 0, sizeof(tmp));
@@ -973,12 +954,9 @@ void *scorer (void *args) {
 
             SYSCN(tmp[i].nome_utente, malloc(len), "Errore nell'allocazione del nome utente");
             
-            // memorizzo temporaneamente in un array di struct (mi piace di più per il sorting)
+            // memorizzare temporaneamente in un array di struct
             strcpy(tmp[i].nome_utente, r -> username);
-            printf("nome utente: %s \n", tmp[i].nome_utente);
-
             tmp[i].punteggio = r -> punteggio;
-            printf("punteggio: %d \n", tmp[i].punteggio);
 
             i++;
             r = r -> next;
@@ -1002,9 +980,7 @@ void *scorer (void *args) {
             free(tmp[j].nome_utente);
         }
 
-        printf("classifica in csv: \n %s", classifica);
-
-        printf("CLASSIFICA PRONTAAA!!!!! \n");
+        printf("Classifica in csv: \n %s", classifica);
 
         svuota_coda_risultati(Punteggi);
 
@@ -1020,7 +996,7 @@ void *scorer (void *args) {
     return NULL;
 }
 
-    // funzione per la gestione del server
+// funzione per la gestione del server
 void server(char* nome_server, int porta_server) {
     //descrittori dei socket
     int fd_client;
@@ -1033,7 +1009,6 @@ void server(char* nome_server, int porta_server) {
 
     sigset_t set;
 
-    printf("ciao sono il server \n");
     // creazione del socket INET restituendo il relativo file descriptor con protocollo TCP
     SYSC(fd_server, socket(AF_INET, SOCK_STREAM, 0), "Errore nella socket");
 

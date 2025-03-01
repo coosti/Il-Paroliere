@@ -12,7 +12,7 @@
 #include <arpa/inet.h>
 #include <sys/stat.h>
 
-#define MAX_CARATTERI_MESSAGGIO 129 // 128 caratteri + terminatore
+#define MAX_CARATTERI_MESSAGGIO 128
 
 #define MAX_MESSAGGI 8
 

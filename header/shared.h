@@ -30,7 +30,7 @@
 #define MSG_POST_BACHECA 'H'
 #define MSG_SHOW_BACHECA 'S'
 
-#define MAX_LUNGHEZZA_USERNAME 11 // 10 caratteri + terminatore
+#define MAX_LUNGHEZZA_USERNAME 10
 #define MIN_LUNGHEZZA_USERNAME 3
 
 #define MIN_LUNGHEZZA_PAROLA 4

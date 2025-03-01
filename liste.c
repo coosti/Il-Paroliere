@@ -32,9 +32,10 @@ void inizializza_lista_thread (lista_thread **lista) {
     (*lista) -> num_thread = 0;
 }
 
+// inserimento in testa di un nuovo thread
 void inserisci_thread (lista_thread *lista, pthread_t tid, int fd) {
 
-    // creazione del'elemento nella lista per il nuovo thread
+    // creazione dell'elemento nella lista per il nuovo thread
     thread_attivo *thd;
     SYSCN(thd, (thread_attivo*)malloc(sizeof(thread_attivo)), "Errore nell'allocazione del thread attivo");
 
@@ -59,6 +60,7 @@ void inserisci_thread (lista_thread *lista, pthread_t tid, int fd) {
     lista -> num_thread++;
 }
 
+// rimozione dalla lista del thread con tid passato per argomento
 void rimuovi_thread (lista_thread *lista, pthread_t tid) {
     
     // puntatore per scorrere
@@ -66,6 +68,7 @@ void rimuovi_thread (lista_thread *lista, pthread_t tid) {
     // puntatore per mantenere l'elemento precedente a quello corrente
     thread_attivo *prev = NULL;
 
+    // caso lista vuota
     if (lista -> head == NULL) {
         printf("Lista vuota\n");
         return;
@@ -109,7 +112,9 @@ void rimuovi_thread (lista_thread *lista, pthread_t tid) {
     }
 }
 
+// funzione per il recupero del file descriptor associato al tid passato per argomento
 int recupera_fd_thread (lista_thread *lista, pthread_t tid) {
+    // scorrimento della lista dei thread
     thread_attivo *tmp = lista -> head;
 
     if (tmp == NULL) {
@@ -126,6 +131,7 @@ int recupera_fd_thread (lista_thread *lista, pthread_t tid) {
     return -1;
 }
 
+// pulizia della lista di thread
 void svuota_lista_thread (lista_thread *lista) {
     
     // due puntatori per scorrere la lista e svuotarla
@@ -148,10 +154,13 @@ void svuota_lista_thread (lista_thread *lista) {
     lista -> num_thread = 0;
 }
 
+// invio del segnale passato a tutti i thread attivi della lista
 void invia_sigusr (lista_thread *lista, int segnale) {
+    // scorrimento della lista di thread
     thread_attivo *tmp = lista -> head;
 
     while (tmp != NULL) {
+        // invio del segnale
         SYST(pthread_kill(tmp -> t_id, segnale));
 
         printf("segnale inviato \n");
@@ -173,6 +182,7 @@ void inizializza_lista_giocatori (lista_giocatori **lista) {
     (*lista) -> num_giocatori = 0;
 }
 
+// inserimento di un nuovo giocatore in testa associato al thread che ha invocato la funzione
 giocatore *inserisci_giocatore (lista_giocatori *lista, char *nome_utente, int fd) {
     // creazione dell'elemento del giocatore nella lista
     giocatore *g;
@@ -212,7 +222,9 @@ giocatore *inserisci_giocatore (lista_giocatori *lista, char *nome_utente, int f
     return g;
 }
 
+// ricerca con username di un giocatore nella lista
 int cerca_giocatore (lista_giocatori *lista, char *nome_utente) {
+    // scorrimento della lista
     giocatore *tmp = lista -> head;
 
     if (tmp == NULL) {
@@ -234,7 +246,9 @@ int cerca_giocatore (lista_giocatori *lista, char *nome_utente) {
     return 0;
 }
 
+// recupero del nome utente associato al tid passato per argomento
 char *recupera_username (lista_giocatori *lista, pthread_t tid) {
+    // scorrimento della lista
     giocatore *tmp = lista -> head;
 
     if (tmp == NULL) {
@@ -242,6 +256,7 @@ char *recupera_username (lista_giocatori *lista, pthread_t tid) {
     }
 
     while (tmp != NULL) {
+        // confronto tra il tid corrente e il tid passato
         if (pthread_equal(tmp -> t_id, tid)) {
             return tmp -> username;
         }
@@ -251,6 +266,7 @@ char *recupera_username (lista_giocatori *lista, pthread_t tid) {
     return NULL;
 }
 
+// recupero del punteggio del giocatore associato al tid passato come argomento
 int recupera_punteggio (lista_giocatori *lista, pthread_t tid) {
     giocatore *tmp = lista -> head;
     
@@ -268,6 +284,7 @@ int recupera_punteggio (lista_giocatori *lista, pthread_t tid) {
     return -1;
 }
 
+// recupero del file descriptor del giocatore associato al tid passato come argomento
 int recupera_fd_giocatore (lista_giocatori *lista, pthread_t tid) {
     giocatore *tmp = lista -> head;
 
@@ -285,6 +302,7 @@ int recupera_fd_giocatore (lista_giocatori *lista, pthread_t tid) {
     return -1;
 }
 
+// ripristino a 0 del punteggio del giocatore associato al tid passato come argomento
 void resetta_punteggio (lista_giocatori *lista, pthread_t tid) {
     giocatore *tmp = lista -> head;
 
@@ -301,11 +319,14 @@ void resetta_punteggio (lista_giocatori *lista, pthread_t tid) {
     }
 }
 
+// rimozione dalla lista del giocatore con username passato come argomento
 void rimuovi_giocatore (lista_giocatori *lista, char *nome_utente) {
 
+    // scorrimento della lista
     giocatore *tmp = lista -> head;
     giocatore *prev = NULL;
 
+    // caso lista vuota
     if (tmp == NULL) {
         printf("Lista vuota\n");
         return;
@@ -343,6 +364,7 @@ void rimuovi_giocatore (lista_giocatori *lista, char *nome_utente) {
 
 }
 
+// pulizia della lista dei giocatori
 void svuota_lista_giocatori (lista_giocatori *lista) {
     if (lista -> head == NULL) {
         return;
@@ -369,7 +391,7 @@ void svuota_lista_giocatori (lista_giocatori *lista) {
     lista -> num_giocatori = 0;
 }
 
-
+// inizializzazione della lista di parole per il giocatore corrente 
 lista_parole *inizializza_parole () {
     lista_parole *lista = (lista_parole*)malloc(sizeof(lista_parole));
     if (lista == NULL) {
@@ -383,6 +405,7 @@ lista_parole *inizializza_parole () {
     return lista;
 }
 
+// inserimento in testa di una nuova parola indovinata dal giocatore, con relativo punteggio (calcolato dal server)
 void inserisci_parola (lista_parole *lista, char *parola, int punti) {
     // creazione del'elemento nella lista per il nuovo thread
     parola_trovata *p;
@@ -417,11 +440,12 @@ void inserisci_parola (lista_parole *lista, char *parola, int punti) {
     lista -> num_parole++;
 }
 
+// ricerca nella lista della parola passata come argomento
 int cerca_parola (lista_parole *lista, char *parola) {
     parola_trovata *tmp = lista -> head;
 
+    // caso lista vuota
     if (tmp == NULL) {
-        // se la lista è vuota (improbabile ma non si sa mai)
         return 0;
     }
 
@@ -439,6 +463,7 @@ int cerca_parola (lista_parole *lista, char *parola) {
     return 0;
 }
 
+// pulizia della lista di parole per la partita successiva
 void svuota_lista_parole (lista_parole *lista) {
     parola_trovata *tmp = lista -> head;
     parola_trovata *nxt = NULL;
@@ -471,7 +496,7 @@ void inizializza_coda_risultati (coda_risultati **coda) {
     (*coda) -> num_risultati = 0;
 }
 
-// inserimento in coda
+// inserimento in coda del risultato, con username e suo punteggio
 void inserisci_risultato (coda_risultati *coda, char *username, int punteggio) {
     risultato *r = (risultato*)malloc(sizeof(risultato));
     if (r == NULL) {
@@ -495,7 +520,6 @@ void inserisci_risultato (coda_risultati *coda, char *username, int punteggio) {
 
     r -> next = NULL;
 
-    // inserimento in coda
     // se la coda è vuota il nuovo elemento è sia testa che coda
     if (coda -> head == NULL) {
         coda -> head = r;
@@ -508,7 +532,7 @@ void inserisci_risultato (coda_risultati *coda, char *username, int punteggio) {
     }
 }
 
-// rimozione in testa
+// lettura del risultato con rimozione in testa
 risultato *leggi_risultato (coda_risultati *coda) {
     // controllare che non sia vuota
     if (coda -> head == NULL) {
@@ -536,6 +560,7 @@ risultato *leggi_risultato (coda_risultati *coda) {
     return tmp;
 }
 
+// funzione di stampa per la coda dei risultati (per debug)
 void stampa_coda_risultati(coda_risultati *coda) {
     risultato *current = coda->head;
     printf("Numero di risultati: %d\n", coda->num_risultati);
@@ -545,6 +570,7 @@ void stampa_coda_risultati(coda_risultati *coda) {
     }
 }
 
+// pulizia della coda risultati per la prossima partita
 void svuota_coda_risultati (coda_risultati *coda) {
     risultato *tmp = coda -> head;
     risultato *nxt = NULL;

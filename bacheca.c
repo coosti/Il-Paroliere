@@ -28,13 +28,13 @@ Messaggio* allocazione_bacheca() {
     }
 
     for(int i = 0; i < MAX_MESSAGGI; i++) {
-        bacheca[i].nome_utente = malloc(MAX_LUNGHEZZA_USERNAME);
+        bacheca[i].nome_utente = malloc(MAX_LUNGHEZZA_USERNAME + 1);
         if (bacheca[i].nome_utente == NULL) {
             perror("Errore allocazione nome_utente");
             exit(EXIT_FAILURE);
         }
 
-        bacheca[i].messaggio = malloc(MAX_CARATTERI_MESSAGGIO);
+        bacheca[i].messaggio = malloc(MAX_CARATTERI_MESSAGGIO + 1);
         if (bacheca[i].messaggio == NULL) {
             perror("Errore allocazione messaggio");
             exit(EXIT_FAILURE);
@@ -113,6 +113,8 @@ char *bacheca_a_stringa(Messaggio bacheca[], int *num_msg) {
         exit(EXIT_FAILURE);
     }
 
+    stringa[0] = '\0';
+
     for (int i = 0; i < *num_msg; i++) {
         strcat(stringa, bacheca[i].nome_utente);
         strcat(stringa, ", ");
@@ -125,7 +127,7 @@ char *bacheca_a_stringa(Messaggio bacheca[], int *num_msg) {
 
 // liberare memoria bacheca
 void deallocazione_bacheca(Messaggio bacheca[], int *num_msg) {
-    for (int i =0; i<*num_msg; i++) {
+    for (int i =0; i<MAX_MESSAGGI; i++) {
         free(bacheca[i].nome_utente);
         free(bacheca[i].messaggio);
     }

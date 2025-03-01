@@ -29,14 +29,10 @@ int fd_client;
 
 thread_args *comunicazione;
 
-// variabile globale per determinare se la chiusura è da parte del client stesso o dovuta al server
-// 0 = chiude il client, 1 = chiude il server
-int chi_chiude = 0;
-
 char *PAROLIERE = "[PROMPT PAROLIERE] --> ";
 
 void stampa_comandi() {
-    printf("\nComandi disponibili: \n"
+    printf("Comandi disponibili: \n"
             "\t aiuto - richiedere i comandi disponibili \n"
             "\t registra_utente <nome_utente> - registrazione al gioco \n"
             "\t matrice - richiedere la matrice corrente e il tempo\n"
@@ -44,15 +40,13 @@ void stampa_comandi() {
             "\t show_msg - stampa della bacheca \n"
             "\t p <parola> - proporre una parola \n"
             "\t classifica - richiedere la classifica \n"
-            "\t fine - uscire dal gioco \n"
-            "\n");
+            "\t fine - uscire dal gioco \n");
     fflush(stdout);
 }
 
 void comando_non_valido() {
-    printf("\nRichiesta non valida! \n"
-            "Per visualizzare i comandi, digitare 'aiuto' \n"
-            "\n");
+    printf("Richiesta non valida! \n"
+            "Per visualizzare i comandi, digitare 'aiuto' \n");
     fflush(stdout);
 }
 
@@ -121,6 +115,8 @@ void sigint_handler (int sig) {
     // eliminare thread ricezione
     SYST(pthread_cancel(comunicazione[1].t_id));
 
+    // serve pthread join dopo aver chiuso ??????
+
     // liberare struct comunicazione dei thread
     if (comunicazione != NULL) {
         free(comunicazione);
@@ -132,11 +128,6 @@ void sigint_handler (int sig) {
 
 // handler per sigusr1
 void invio_handler (int sig) {
-    if (chi_chiude == 0) {
-        // inviare messaggio di chiusura al server
-        prepara_msg(fd_client, MSG_ERR, NULL);
-    }
-
     // terminazione
     pthread_exit(NULL);
     return;
@@ -145,7 +136,6 @@ void invio_handler (int sig) {
 // handler per sigusr2
 void ricezione_handler (int sig) {
     // non deve fare nulla perché non deve più ricevere
-    
     // terminazione
     pthread_exit(NULL);
     return;
@@ -168,7 +158,7 @@ void *invio_client (void *args) {
 
     while (1) {
 
-        // lettura da standard input 
+        // lettura da standard input con la read
         char buffer[MAX_LUNGHEZZA_STDIN];
         ssize_t n_read;
 
@@ -181,14 +171,25 @@ void *invio_client (void *args) {
         char *msg_stdin;
         SYSCN(msg_stdin, (char*)malloc(n_read + 1), "Errore nella malloc");
 
+        // copia di ciò che è stato letto nel buffer nella variabile del messaggio
         strncpy(msg_stdin, buffer, n_read);
+        // inserimento del terminatore di stringa in ultima posizione
         msg_stdin[n_read] = '\0';
 
-        // tokenizzare il contenuto di msg_stdin per prendere il comando ed eventuali parametri previsti
+        // tokenizzare il contenuto di msg_stdin per prendere il comando
         char *comando = strtok(msg_stdin, " ");
+
+        // controllo per prevenire situazioni dove il comando è NULL (ad esempio se viene premuto invio senza scrivere nulla)
+        if (comando == NULL) {
+            comando_non_valido();
+            free(msg_stdin);
+            continue;
+        }
+
+        // tokenizzare di nuovo per prendere eventuali parametri
         char *argomento = strtok(NULL, " ");
 
-        // if con tutti i casi
+        // if con tutte le casistiche di messaggio
         if (strcmp(comando, "aiuto") == 0 && argomento == NULL) {
             stampa_comandi();
             free(msg_stdin);
@@ -204,19 +205,16 @@ void *invio_client (void *args) {
                 continue;
             }
             else if (!(controllo_lunghezza_min(argomento, MIN_LUNGHEZZA_USERNAME))) {
-                printf("\nNome utente troppo corto! \n"
-                        "Deve avere almeno %d caratteri \n"
-                        "\n", MIN_LUNGHEZZA_USERNAME);
+                printf("Nome utente troppo corto! \n"
+                        "Deve avere almeno %d caratteri \n", MIN_LUNGHEZZA_USERNAME);
             }
             else if (!(controllo_lunghezza_max(argomento, MAX_LUNGHEZZA_USERNAME))) {
-                printf("\nNome utente troppo lungo! \n"
-                        "Deve avere massimo %d caratteri \n"
-                        "\n", MAX_LUNGHEZZA_USERNAME);
+                printf("Nome utente troppo lungo! \n"
+                        "Deve avere massimo %d caratteri \n", MAX_LUNGHEZZA_USERNAME);
             }
             else if (!(username_valido(argomento))) {
-                printf("\nNome utente non valido! \n"
-                        "Deve essere tutto minuscolo e contenere solo caratteri alfanumerici \n"
-                        "\n");
+                printf("Nome utente non valido! \n"
+                        "Deve essere tutto minuscolo e contenere solo caratteri alfanumerici \n");
             }
             else {
                 // se il nome utente è valido invio il messaggio con l'username
@@ -240,7 +238,7 @@ void *invio_client (void *args) {
             // iterare con strtok per prendere tutto il messaggio
             char *msg_intero = strtok(NULL, "");
             if (msg_intero != NULL) {
-                size_t len = strlen(argomento) + strlen(msg_intero) + 2; // Spazio per concatenazione e terminatore
+                size_t len = strlen(argomento) + strlen(msg_intero) + 2; // spazio per concatenazione e terminatore
                 char *full_argomento;
                 SYSCN(full_argomento, (char *)malloc(len), "Errore nell'allocazione della memoria");
                 
@@ -249,13 +247,11 @@ void *invio_client (void *args) {
             }
 
             if (strlen(argomento) == 0) {
-                printf("\nMessaggio vuoto!\n"
-                        "\n");
+                printf("Messaggio vuoto!\n");
             }
             else if (!(controllo_lunghezza_max(argomento, MAX_CARATTERI_MESSAGGIO))) {
-                printf("\nMessaggio troppo lungo!\n"
-                        "Massimo %d caratteri \n"
-                        "\n", MAX_CARATTERI_MESSAGGIO);
+                printf("Messaggio troppo lungo!\n"
+                        "Massimo %d caratteri \n", MAX_CARATTERI_MESSAGGIO);
             }
             else {
                 // se il messaggio è valido lo invio
@@ -285,9 +281,8 @@ void *invio_client (void *args) {
             }
             else if (!(controllo_lunghezza_min(argomento, MIN_LUNGHEZZA_PAROLA))) {
                 // se la parola ha meno di 4 caratteri -> errore
-                printf("\nParola troppo corta \n"
-                        "Deve avere almeno %d caratteri \n"
-                        "\n", MIN_LUNGHEZZA_PAROLA);
+                printf("Parola troppo corta \n"
+                        "Deve avere almeno %d caratteri \n", MIN_LUNGHEZZA_PAROLA);
                 fflush(stdout);
 
                 free(msg_stdin);
@@ -352,9 +347,6 @@ void *ricezione_client (void *args) {
         if (risposta == NULL) {
             printf("Il server si sta chiudendo... \n");
 
-            // impostare la variabile a 1 dato che la chiusura è del server
-            chi_chiude = 1;
-
             // avvisare thread invio per chiusura pulita
             SYST(pthread_kill(comunicazione[0].t_id, SIGUSR1));
 
@@ -363,11 +355,10 @@ void *ricezione_client (void *args) {
             pthread_exit(NULL);
         }
 
+        // if con tutti i tipi di risposta
         if (risposta -> type == MSG_SERVER_SHUTDOWN) {
             // il server si sta chiudendo, devo chiudere anche io client
             printf("Il server si sta chiudendo... \n");
-
-            chi_chiude = 1;
 
             // avvisare thread invio per chiusura pulita
             SYST(pthread_kill(comunicazione[0].t_id, SIGUSR1));
@@ -380,44 +371,56 @@ void *ricezione_client (void *args) {
             pthread_exit(NULL);                       
         }
         else if (risposta -> type == MSG_OK) {
-            printf("\n%s\n", risposta->data);
+            printf("%s\n", risposta->data);
             fflush(stdout);
         }
         else if (risposta -> type == MSG_ERR) {
-            printf("\n%s\n", risposta->data);
+            printf("%s\n", risposta->data);
             fflush(stdout);
         }
         else if (risposta -> type == MSG_MATRICE) {
-            // stampa della matrice
-            printf("\nMatrice di gioco: \n");
+            // stampa della matrice, convertendola da stringa del messaggio a 'tabella'
+            printf("Matrice di gioco: \n");
             stampa_matrice_stringa(risposta->data);
         }
         else if (risposta -> type == MSG_TEMPO_PARTITA) {
             // stampa del tempo rimanente
-            printf("\nMancano %s secondi alla fine della partita \n"
-                    "\n", risposta->data);
+            printf("Mancano %s secondi alla fine della partita \n", risposta->data);
         }
         else if (risposta -> type == MSG_TEMPO_ATTESA) {
             // stampa del tempo della pausa
-            printf("\nMancano %s secondi all'inizio della partita \n"
-                    "\n", risposta->data);
+            printf("Mancano %s secondi all'inizio della partita \n", risposta->data);
         }
         else if (risposta -> type == MSG_PUNTI_PAROLA) {
-            // stampa punteggio parola -> funzione ????
-            printf("\nHai ottenuto %s punti \n"
-                    "\n", risposta->data);
+            // stampa del punteggio della parola
+            printf("Hai ottenuto %s punti \n", risposta->data);
+        }
+        else if (risposta -> type == MSG_SHOW_BACHECA) {
+            if (risposta -> length == 0) {
+                // se la bacheca è vuota
+                printf("Bacheca vuota! \n");
+                fflush(stdout);
+            }
+            else {
+                printf("Bacheca messaggi: \n");
+                // stampa della bacheca
+                printf("%s\n", risposta->data);
+                fflush(stdout);
+            }
         }
         else if (risposta -> type == MSG_PUNTI_FINALI) {
             // stampa della classifica
             int i = 1;
 
-            printf("\nClassifica finale: \n");
+            printf("Classifica finale: \n");
             fflush(stdout);
             char *token = strtok(risposta->data, "\n");
 
-            printf("Il vincitore è -> %s \n", token);
+            // stampa del vincitore
+            printf("Il vincitore è %s \n", token);
             fflush(stdout);
 
+            // stampa della classifica con posizione, nome e punteggio
             while (token != NULL) {
                 printf(" %d - %s \n", i, token);
 
@@ -426,20 +429,8 @@ void *ricezione_client (void *args) {
                 i++;
             }
         }
-        else if (risposta -> type == MSG_SHOW_BACHECA) {
-            if (risposta -> length == 0) {
-                printf("\nBacheca vuota! \n");
-                fflush(stdout);
-            }
-            else {
-                printf("\nBacheca messaggi: \n");
-                // stampa della bacheca
-                printf("%s \n", risposta->data);
-                fflush(stdout);
-            }
-        }
-        else {
-            printf("\nRisposta non valida! \n");
+        else{
+            printf("Risposta non valida! \n");
             fflush(stdout);
             continue;
         }
@@ -511,5 +502,5 @@ int main(int argc, char *ARGV[]) {
     SYST(pthread_join(comunicazione[0].t_id, NULL));
     SYST(pthread_join(comunicazione[1].t_id, NULL));
 
-    return 0;
+    pthread_exit(NULL);
 }
