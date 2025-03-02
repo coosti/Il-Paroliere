@@ -70,9 +70,8 @@ int num_chiusure = 0;
 // trie
 Trie *radice = NULL;
 
-// bacheca + inizializzazione del numero di messaggi presenti
-Messaggio *bacheca;
-int n_post = 0;
+// bacheca
+Bacheca *bacheca;
 
 // matrice come array di stringhe
 char **matrice;
@@ -259,7 +258,7 @@ void sigint_handler (int sig) {
 
     // deallocazione bacheca
     if (bacheca) {
-        deallocazione_bacheca(bacheca, &n_post);
+        deallocazione_bacheca(bacheca);
     }
 
     // deallocazione matrice
@@ -757,7 +756,7 @@ void *thread_client (void *args) {
             char *post = richiesta -> data;
 
             pthread_mutex_lock(&bacheca_mtx);
-            inserimento_bacheca(bacheca, player -> username, post, &n_post);
+            inserimento_bacheca(bacheca, player -> username, post);
             pthread_mutex_unlock(&bacheca_mtx);
 
             char *msg = "Pubblicazione del messaggio avvenuta con successo";
@@ -767,7 +766,7 @@ void *thread_client (void *args) {
         else if (richiesta -> type == MSG_SHOW_BACHECA) {
 
             pthread_mutex_lock(&bacheca_mtx);
-            bacheca_strng = bacheca_a_stringa(bacheca, &n_post);
+            bacheca_strng = bacheca_a_stringa(bacheca);
             pthread_mutex_unlock(&bacheca_mtx);
             
             prepara_msg(fd_c, MSG_SHOW_BACHECA, bacheca_strng);

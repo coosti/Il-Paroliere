@@ -22,17 +22,22 @@ typedef struct Messaggio {
     char *messaggio;
 } Messaggio;
 
+typedef struct Bacheca {
+    Messaggio *messaggi;
+    int num_msg;
+} Bacheca;
+
 // allocazione bacheca
-Messaggio* allocazione_bacheca();
+Bacheca* allocazione_bacheca();
 
 // inserimento di un messaggio in bacheca
-void inserimento_bacheca(Messaggio bacheca [], char *username, char *msg, int *num_msg);
+void inserimento_bacheca(Bacheca *bacheca, char *username, char *msg);
 
 // stampa della bacheca
-void stampa_bacheca(Messaggio bacheca[], int *num_msg);
+void stampa_bacheca(Bacheca *bacheca);
 
 // da bacheca a stringa
-char *bacheca_a_stringa(Messaggio bacheca[], int *num_msg);
+char *bacheca_a_stringa(Bacheca *bacheca);
 
 // deallocazione bacheca
-void deallocazione_bacheca(Messaggio bacheca[], int *num_msg);
+void deallocazione_bacheca(Bacheca *bacheca);
