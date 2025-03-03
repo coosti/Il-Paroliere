@@ -115,8 +115,6 @@ void sigint_handler (int sig) {
     // eliminare thread ricezione
     SYST(pthread_cancel(comunicazione[1].t_id));
 
-    // serve pthread join dopo aver chiuso ??????
-
     // liberare struct comunicazione dei thread
     if (comunicazione != NULL) {
         free(comunicazione);

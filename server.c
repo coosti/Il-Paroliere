@@ -59,6 +59,11 @@ int fase_gioco = 0;
 // 0 = partita in corso, 1 = partita finita
 int partita_finita = 0;
 
+// variabile globale per segnalare quando la classifica è pronta
+// 0 = partita in corso -> classifica non ancora disponibile
+// 1 = finita partita -> ok classifica
+int classifica_disponibile = 0;
+
 // variabile globale per la chiusura del server
 int chiudi = 0;
 
@@ -483,6 +488,8 @@ void *thread_client (void *args) {
             free(matrice_strng);
             free(Parole_Trovate);
 
+            free(richiesta);
+
             // terminazione del thread
             pthread_exit(NULL);
         }
@@ -500,6 +507,8 @@ void *thread_client (void *args) {
             free(params);
             free(matrice_strng);
             free(Parole_Trovate);
+
+            free(richiesta);
             
             pthread_exit(NULL);
         }
@@ -511,12 +520,20 @@ void *thread_client (void *args) {
             if (Giocatori -> num_giocatori == MAX_CLIENT) {
                 char *msg = "Numero massimo di giocatori raggiunto, rimani in attesa per giocare";
                 prepara_msg(fd_c, MSG_ERR, msg);
+
+                free(nome_utente);
+                free(richiesta);
+
                 continue;
             }
             // se il nome utente è già presente nella lista giocatori inviare messaggio di errore
             else if (cerca_giocatore(Giocatori, nome_utente) == 1) {
                 char *msg = "Nome utente già in uso, scegline un altro";
                 prepara_msg(fd_c, MSG_ERR, msg);
+
+                free(nome_utente);
+                free(richiesta);
+
                 continue;
             }
 
@@ -535,6 +552,7 @@ void *thread_client (void *args) {
             // inviare messaggio di avvenuta registrazione
             char *msg = "Registrazione avvenuta con successo, sei pronto a giocare?";
             prepara_msg(fd_c, MSG_OK, msg);
+
             break;
         }
 
@@ -636,6 +654,7 @@ void *thread_client (void *args) {
 
             free(matrice_strng);
             free(bacheca_strng);
+
             free(richiesta);
             
             // terminazione del thread
@@ -652,6 +671,10 @@ void *thread_client (void *args) {
                     // se è già presente nella lista, inviare punti parola a 0
                     char *msg = "0";
                     prepara_msg(fd_c, MSG_PUNTI_PAROLA, msg);
+
+                    free(p);
+                    free(richiesta);
+
                     continue;
                 }
                 // controllare che sia presente nel dizionario e sia componibile nella matrice
@@ -659,6 +682,10 @@ void *thread_client (void *args) {
                     // se non è presente nel dizionario inviare messaggio di errore
                     char *msg = "Parola non presente nel dizionario";
                     prepara_msg(fd_c, MSG_ERR, msg);
+
+                    free(p);
+                    free(richiesta);
+
                     continue;
                 }
                     
@@ -694,6 +721,8 @@ void *thread_client (void *args) {
                     prepara_msg(fd_c, MSG_ERR, msg);
 
                     free(par);
+                    free(p);
+                    free(richiesta);
 
                     continue;
                 }
@@ -719,14 +748,20 @@ void *thread_client (void *args) {
                 prepara_msg(fd_c, MSG_PUNTI_PAROLA, msg);
 
                 free(par);
-
                 free(msg);
+                free(p);
+                free(richiesta);
+
                 continue;                
             }
             else {
                 // inviare messaggio di errore
                 char *msg = "Il gioco è in pausa, ora non puoi inviare parole";
                 prepara_msg(fd_c, MSG_ERR, msg);
+
+                free(richiesta -> data);
+                free(richiesta);
+
                 continue;
             }
         }
@@ -736,6 +771,8 @@ void *thread_client (void *args) {
                 prepara_msg(fd_c, MSG_TEMPO_ATTESA, tempo);
 
                 free(tempo);
+                free(richiesta);
+
                 continue;
             }
             else {
@@ -748,6 +785,7 @@ void *thread_client (void *args) {
                 prepara_msg(fd_c, MSG_TEMPO_PARTITA, tempo);
 
                 free(tempo);
+                free(richiesta);
 
                 continue;
             }
@@ -761,6 +799,10 @@ void *thread_client (void *args) {
 
             char *msg = "Pubblicazione del messaggio avvenuta con successo";
             prepara_msg(fd_c, MSG_OK, msg);
+
+            free(post);
+            free(richiesta);
+
             continue;
         }
         else if (richiesta -> type == MSG_SHOW_BACHECA) {
@@ -771,21 +813,43 @@ void *thread_client (void *args) {
             
             prepara_msg(fd_c, MSG_SHOW_BACHECA, bacheca_strng);
 
+            free(richiesta);
+
             continue;
         }
         else if (richiesta -> type == MSG_REGISTRA_UTENTE) {
             char *msg = "Sei già registrato";
             prepara_msg(fd_c, MSG_ERR, msg);
+
+            free(richiesta -> data);
+            free(richiesta);
+
             continue;
         }
         else if (richiesta -> type == MSG_PUNTI_FINALI) {
-            if (fase_gioco == 0) {
-                prepara_msg(fd_c, MSG_PUNTI_FINALI, classifica);
-                continue;
+            if (fase_gioco == 1) {
+                if (classifica_disponibile == 1) {
+                    prepara_msg(fd_c, MSG_PUNTI_FINALI, classifica);
+
+                    free(richiesta);
+                    
+                    continue;
+                }
+                else {
+                    char *msg = "Il gioco è ancora in corso, la classifica non è ancora stata stilata";
+                    prepara_msg(fd_c, MSG_ERR, msg);
+
+                    free(richiesta);
+
+                    continue;
+                }
             }
             else {
-                char *msg = "Aspetta la fine del gioco per richiedere la classifica";
+                char *msg = "Classifica non disponibile, il gioco non è ancora iniziato";
                 prepara_msg(fd_c, MSG_ERR, msg);
+
+                free(richiesta);
+
                 continue;
             }
         }
@@ -978,6 +1042,8 @@ void *scorer (void *args) {
             strncat(classifica, s, sizeof(classifica) - strlen(classifica) - 1);
             free(tmp[j].nome_utente);
         }
+
+        classifica_disponibile = 1;
 
         printf("Classifica in csv: \n %s", classifica);
 

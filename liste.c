@@ -481,6 +481,8 @@ void svuota_lista_parole (lista_parole *lista) {
 
     lista -> head = NULL;
     lista -> num_parole = 0;
+
+    free(lista);
 }
 
 void inizializza_coda_risultati (coda_risultati **coda) {
