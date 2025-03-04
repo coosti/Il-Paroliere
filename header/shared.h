@@ -16,7 +16,7 @@
 #include <arpa/inet.h>
 #include <sys/stat.h>
 
-// messaggi
+// protocollo di comunicazione
 #define MSG_OK 'K'
 #define MSG_ERR 'E'
 #define MSG_REGISTRA_UTENTE 'R'
@@ -35,6 +35,7 @@
 
 #define MIN_LUNGHEZZA_PAROLA 4
 
+// struttura del messaggio
 typedef struct {
     char type;
     unsigned int length;

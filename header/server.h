@@ -31,9 +31,10 @@ typedef struct client_args {
     int sck;
 } client_args;
 
-void sigint_handler (int sig);
+// funzione del thread di chiusura
+void *chiusura (void *args);
 
-void chiudi_tutto ();
+void sigint_handler (int sig);
 
 void sigclient_handler (int sig);
 
