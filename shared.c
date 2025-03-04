@@ -38,7 +38,7 @@ void prepara_msg(int fd, char type, char *m) {
         invio.data[invio.length] = '\0';
     }
 
-    // viene passato il msg_socket alla funzione di invio
+    // viene passato il msg_socket all'effettiva funzione di invio
     invio_msg(fd, &invio);
 
     free(invio.data);
@@ -46,10 +46,10 @@ void prepara_msg(int fd, char type, char *m) {
     invio.length = 0;
 }
 
-// funzione di invio -> fin qui nessun problema
+// funzione di invio
 void invio_msg(int fd, Msg_Socket *msg) {
     int ret;
-    // riprendere i campi da msg
+    // riprendere i campi dalla struct e inviarli uno alla volta
 
     // invio del carattere che indica il tipo del messaggio
     SYSC(ret, write(fd, &msg->type, sizeof(char)), "Errore nella write del tipo di messaggio");

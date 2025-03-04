@@ -56,6 +56,7 @@ int ricerca_trie(Trie *radice, char *parola) {
 
     for (int i = 0; i < strlen(parola); i++) {
         int indice = parola[i] - 'a';
+        // ricerca nei nodi figli
         if (tmp->figli[indice] == NULL) {
             return 0;
         }

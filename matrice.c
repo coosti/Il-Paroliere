@@ -139,16 +139,16 @@ int ricerca_parola (char **matrice, char *parola, int i_riga, int j_colonna, int
         int x = i_riga + r[i];
         int y = j_colonna + c[i];
 
-        // se la ricerca in quella direzione ha avuto successo -> trovata
+        // se la ricerca in quella direzione ha avuto successo
         if (ricerca_parola(matrice, parola, x, y, r, c, p + 1, length, visitata)) {
-            return 1;
+            return 1; // trovata!
         }
     }
 
     // 'pulire' la casella visitata
     visitata[i_riga][j_colonna] = 0;
 
-    // -> non trovata
+    // non trovata
     return 0;
 }
 
@@ -221,7 +221,7 @@ void stampa_matrice_stringa (char *matrice) {
     }
 }
 
-// rendere la matrice una stringa
+// conversione da matrice in stringa
 char *matrice_a_stringa(char **matrice, char *stringa) {
     int k = 0;
 

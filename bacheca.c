@@ -19,6 +19,7 @@
 
 // file contenente le funzioni per la gestione della bacheca
 
+// allocazione dello spazio necessario per la bacheca
 Bacheca* allocazione_bacheca() {
     Bacheca *bacheca = malloc(sizeof(Bacheca));
     if (bacheca == NULL) {
@@ -33,6 +34,7 @@ Bacheca* allocazione_bacheca() {
         exit(EXIT_FAILURE);
     }
 
+    // allocazione spazio per nome utente - messaggio
     for(int i = 0; i < MAX_MESSAGGI; i++) {
         bacheca -> messaggi[i].nome_utente = malloc(MAX_LUNGHEZZA_USERNAME + 1);
         if (bacheca -> messaggi[i].nome_utente == NULL) {
@@ -97,7 +99,7 @@ void stampa_bacheca(Bacheca *bacheca) {
     
 }
 
-// stampa della bacheca in csv dopo MSG_SHOW_BACHECA
+// conversione della bacheca in stringa
 char *bacheca_a_stringa(Bacheca *bacheca) {
     char *stringa = malloc(MAX_MESSAGGI * (MAX_LUNGHEZZA_USERNAME + MAX_CARATTERI_MESSAGGIO));
     if (stringa == NULL) {
@@ -117,7 +119,7 @@ char *bacheca_a_stringa(Bacheca *bacheca) {
     return stringa;
 }
 
-// liberare memoria bacheca
+// deallocazione dello spazio della bacheca
 void deallocazione_bacheca(Bacheca *bacheca) {
     for (int i =0; i<MAX_MESSAGGI; i++) {
         free(bacheca -> messaggi[i].nome_utente);

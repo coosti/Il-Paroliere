@@ -17,7 +17,7 @@
 #include "header/macros.h"
 #include "header/liste.h"
 
-// funzioni per la lista di thread
+// LISTA DI THREAD ATTIVI
 
 void inizializza_lista_thread (lista_thread **lista) {
     *lista = (lista_thread*)malloc(sizeof(lista_thread));
@@ -154,7 +154,7 @@ void svuota_lista_thread (lista_thread *lista) {
     lista -> num_thread = 0;
 }
 
-// invio del segnale passato a tutti i thread attivi della lista
+// invio del segnale passato come argomento a tutti i thread attivi della lista
 void invia_sigusr (lista_thread *lista, int segnale) {
     // scorrimento della lista di thread
     thread_attivo *tmp = lista -> head;
@@ -169,6 +169,8 @@ void invia_sigusr (lista_thread *lista, int segnale) {
     }
 }
 
+// LISTA DEI GIOCATORI
+
 void inizializza_lista_giocatori (lista_giocatori **lista) {
     *lista = (lista_giocatori*)malloc(sizeof(lista_giocatori));
     if (*lista == NULL) {
@@ -182,12 +184,11 @@ void inizializza_lista_giocatori (lista_giocatori **lista) {
     (*lista) -> num_giocatori = 0;
 }
 
-// inserimento di un nuovo giocatore in testa associato al thread che ha invocato la funzione
+// inserimento in testa di un nuovo giocatore associato al thread che ha invocato la funzione
 giocatore *inserisci_giocatore (lista_giocatori *lista, char *nome_utente, int fd) {
-    // creazione dell'elemento del giocatore nella lista
+    // creazione dell'elemento giocatore
     giocatore *g;
     SYSCN(g, (giocatore*)malloc(sizeof(giocatore)), "Errore nell'allocazione del giocatore");
-
     memset(g, 0, sizeof(giocatore));
 
     // assegnazione del nome utente passato come parametro
@@ -224,15 +225,14 @@ giocatore *inserisci_giocatore (lista_giocatori *lista, char *nome_utente, int f
 
 // ricerca con username di un giocatore nella lista
 int cerca_giocatore (lista_giocatori *lista, char *nome_utente) {
-    // scorrimento della lista
     giocatore *tmp = lista -> head;
-
+    // caso lista vuota
     if (tmp == NULL) {
         return 0;
     }
 
     while (tmp != NULL) {
-        // confronto tra nome utente di tmp e il nome utente passato come parametro
+        // confronto tra nome utente corrente in tmp e il nome utente passato come parametro
         if (strcmp(tmp ->username, nome_utente) == 0) {
             // esiste già un utente con questo username
             return 1;
@@ -302,7 +302,7 @@ int recupera_fd_giocatore (lista_giocatori *lista, pthread_t tid) {
     return -1;
 }
 
-// ripristino a 0 del punteggio del giocatore associato al tid passato come argomento
+// modifica a 0 del punteggio del giocatore associato al tid passato come argomento
 void resetta_punteggio (lista_giocatori *lista, pthread_t tid) {
     giocatore *tmp = lista -> head;
 
@@ -332,7 +332,7 @@ void rimuovi_giocatore (lista_giocatori *lista, char *nome_utente) {
         return;
     }
 
-    // giocatore da eliminare è in testa
+    // giocatore da eliminare in testa
     // confronto tra stringhe del nome utente di tmp e il nome utente passato come parametro
     if (strcmp(tmp ->username, nome_utente) == 0) {
         lista -> head = tmp -> next;
@@ -345,7 +345,7 @@ void rimuovi_giocatore (lista_giocatori *lista, char *nome_utente) {
         return;
     }
     
-    // se il giocatore da eliminare è nel mezzo
+    // giocatore da eliminare nel mezzo
     while (tmp != NULL) {
         if (strcmp(tmp ->username, nome_utente) == 0) {
             // il next dell'elemento precedente punta all'elemento successivo di tmp
@@ -391,7 +391,8 @@ void svuota_lista_giocatori (lista_giocatori *lista) {
     lista -> num_giocatori = 0;
 }
 
-// inizializzazione della lista di parole per il giocatore corrente 
+// LISTA DI PAROLE TROVATE per giocatore corrente
+
 lista_parole *inizializza_parole () {
     lista_parole *lista = (lista_parole*)malloc(sizeof(lista_parole));
     if (lista == NULL) {
@@ -405,13 +406,12 @@ lista_parole *inizializza_parole () {
     return lista;
 }
 
-// inserimento in testa di una nuova parola indovinata dal giocatore, con relativo punteggio (calcolato dal server)
+// inserimento in testa di una nuova parola indovinata dal giocatore con relativo punteggio
 void inserisci_parola (lista_parole *lista, char *parola, int punti) {
-    // creazione del'elemento nella lista per il nuovo thread
     parola_trovata *p;
     SYSCN(p, (parola_trovata*)malloc(sizeof(parola_trovata)), "Errore nell'allocazione della parola trovata");
 
-    // inizializzazione della parola trovata
+    // inizializzazione della parola
     p -> parola = (char*)malloc(strlen(parola) + 1);
     if (p -> parola == NULL) {
         perror("Errore nell'allocazione della parola");
@@ -420,6 +420,7 @@ void inserisci_parola (lista_parole *lista, char *parola, int punti) {
     }
     strcpy(p -> parola, parola);
 
+    // inserimento del punteggio
     p -> punti = punti;
 
     p -> next = NULL;
@@ -459,7 +460,7 @@ int cerca_parola (lista_parole *lista, char *parola) {
         tmp = tmp -> next;
     }
 
-    // se non viene trovata
+    // se non viene trovata ok
     return 0;
 }
 
@@ -484,6 +485,8 @@ void svuota_lista_parole (lista_parole *lista) {
 
     free(lista);
 }
+
+// CODA DEI RISULTATI
 
 void inizializza_coda_risultati (coda_risultati **coda) {
     *coda = (coda_risultati*)malloc(sizeof(coda_risultati));
@@ -522,13 +525,15 @@ void inserisci_risultato (coda_risultati *coda, char *username, int punteggio) {
 
     r -> next = NULL;
 
-    // se la coda è vuota il nuovo elemento è sia testa che coda
+    // se la coda è vuota
     if (coda -> head == NULL) {
+        // il nuovo elemento è sia il riferimento in testa che in coda
         coda -> head = r;
         coda -> tail = r;
     }
+    // se la coda non è vuota
     else {
-        // se la coda non è vuota, si aggiorna il riferimento next della coda con il nuovo elemento
+        // si aggiorna il riferimento next della coda con il nuovo elemento
         coda -> tail -> next = r;
         coda -> tail = r; 
     }
@@ -541,7 +546,6 @@ risultato *leggi_risultato (coda_risultati *coda) {
         return NULL;
     }
 
-    // puntatore per mantenere il riferimento all'elemento da restituire
     risultato *tmp = coda -> head;
 
     // se l'elemento da togliere è l'unico della coda
@@ -550,8 +554,8 @@ risultato *leggi_risultato (coda_risultati *coda) {
         coda -> head = NULL;
         coda -> tail = NULL;
     }
+    // se ci sono altri elementi oltre a quello tolto
     else {
-        // se ci sono altri elementi oltre a quello tolto
         // la nuova testa è l'elemento successivo
         coda -> head = coda -> head -> next;        
     }
