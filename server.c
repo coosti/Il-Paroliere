@@ -39,8 +39,7 @@ int fd_server;
 // parametri con valori di default
 char *data_filename = NULL;
 
-// ricambialo a 3
-int durata_gioco = 1;
+int durata_gioco = 3;
 
 int rnd_seed;
 
