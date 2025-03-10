@@ -177,6 +177,11 @@ void *chiusura (void *args) {
     pthread_mutex_unlock(&sig_mtx);
 
     if (Threads -> num_thread > 0) {
+
+        pthread_mutex_lock(&client_mtx);
+        invia_sigusr(Threads, SIGUSR2);
+        pthread_mutex_unlock(&client_mtx);
+
         // attesa che tutti i thread abbiano inviato il messaggio al proprio client
         pthread_mutex_lock(&chiusura_mtx);
         while (num_chiusure < Threads -> num_thread) {
