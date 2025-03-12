@@ -21,12 +21,12 @@ Nel programma sono individuabili due ruoli principali:
 Entrambi comunicano tramite il protocollo definito nei file *shared.h* e *shared.c*, inviando richieste e risposte sul socket.
 
 ## **Compilazione ed esecuzione**
-È possibile utilizzare le regole di test definite all'interno del makefile.
-Per compilare l'intero progetto:
-`make`
+È possibile utilizzare le regole di test definite all'interno del makefile.  
+Per compilare l'intero progetto:  
+`make`  
 
 ### Server
-Avviare il server specificando indirizzo IP, porta ed eventuali parametri.
+Avviare il server specificando indirizzo IP, porta ed eventuali parametri. Per la chiusura premere CTRL-C.
 
 #### avviare il server con IP 127.0.0.1 e porta 1025
 `make test1`
@@ -41,7 +41,7 @@ Avviare il server specificando indirizzo IP, porta ed eventuali parametri.
 `make test5`
 
 ### Client
-Avviare il client specificando l'indirizzo IP e la porta a cui collegarsi. Sono ammessi fino a 32 client.
+Avviare il client specificando l'indirizzo IP e la porta a cui collegarsi. Sono ammessi fino a 32 client. Per la chiusura scrivere il comando *fine* oppure premere CTRL-C.
 
 #### avviare il client su IP 127.0.0.1 e porta 1025
 `make test4`
