@@ -6,17 +6,19 @@ Il Paroliere è un progetto sviluppato in linguaggio C come conclusione del cors
 
 ### **Funzionalità**
  - Registrazione e gestione dei giocatori
+ - Utilizzo di una struttura dati *trie* per la memorizzazione delle parole del dizionario
+ - Utilizzo di un algoritmo di ricerca ricorsivo per le parole nella matrice, basato su un'esplorazione per profondità nelle 8 direzioni (orizzontale, verticale, diagonale)
  - Calcolo del punteggio di ogni parola in base alla lunghezza ed elaborazione della classifica al termine di ogni partita
  - Comunicazione tra giocatori attraverso una bacheca su cui scambiarsi messaggi
  - Comunicazione dei client con il server tramite socket TCP in base ad un protocollo stabilito
  - Gestione multithread
 
 ## **Struttura del progetto**
-Nel programma vengono individuati due ruoli principali:
-- *client*: gestisce l'interazione con l'utente tramite terminale, consentendo di registrarsi, richiedere e ricevere aggiornamenti sullo stato del gioco (visualizzare la matrice di lettere e il tempo di partita/pausa), inviare le parole trovate e pubblicare messaggi sulla bacheca
+Nel programma sono individuabili due ruoli principali:
+- *client*: gestisce l'interazione con l'utente tramite terminale, consentendo di registrarsi, richiedere e ricevere aggiornamenti sullo stato del gioco (visualizzare la matrice di lettere e il tempo di partita/pausa), inviare le parole trovate e pubblicare messaggi sulla bacheca;
 - *server*: elabora le richieste dei client, gestendoli a partire dalla registrazione fino alla loro chiusura; si occupa di organizzare il gioco e le sue fasi e stilare la classifica relativa al termine di ogni partita. 
 
-Entrambi comunicano tramite il protocollo definito nei file shared.h e shared.c, inviando richieste e risposte sul socket.
+Entrambi comunicano tramite il protocollo definito nei file *shared.h* e *shared.c*, inviando richieste e risposte sul socket.
 
 ## **Compilazione ed esecuzione**
 È possibile utilizzare le regole di test definite all'interno del makefile.
