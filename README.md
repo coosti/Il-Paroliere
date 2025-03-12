@@ -16,7 +16,7 @@ Il Paroliere è un progetto sviluppato in linguaggio C come conclusione del cors
 ## **Struttura del progetto**
 Nel programma sono individuabili due ruoli principali:
 - *client*: gestisce l'interazione con l'utente tramite terminale, consentendo di registrarsi, richiedere e ricevere aggiornamenti sullo stato del gioco (visualizzare la matrice di lettere e il tempo di partita/pausa), inviare le parole trovate e pubblicare messaggi sulla bacheca
-- *server*: elabora le richieste dei client, gestendoli a partire dalla registrazione fino alla loro chiusura; si occupa di organizzare il gioco e le sue fasi e stilare la classifica relativa al termine di ogni partita. 
+- *server*: elabora le richieste dei client, gestendoli a partire dalla registrazione fino alla loro chiusura; si occupa di organizzare il gioco e le sue fasi e stilare la classifica relativa al termine di ogni partita
 
 Entrambi comunicano tramite il protocollo definito nei file *shared.h* e *shared.c*, inviando richieste e risposte sul socket.
 
