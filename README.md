@@ -4,7 +4,7 @@
 Il Paroliere è un progetto sviluppato in linguaggio C come conclusione del corso di Laboratorio II della facoltà di Informatica dell'Università di Pisa.
 È stato implementato l'omonimo gioco, attraverso un'architettura client-server, in cui ogni giocatore deve trovare il maggior numero di parole ammissibili e componibili su una matrice 4x4, entro un tempo stabilito.
 
-### **Funzionalità**
+## **Funzionalità**
  - Registrazione e gestione dei giocatori
  - Utilizzo di una struttura dati *trie* per la memorizzazione delle parole del dizionario
  - Utilizzo di un algoritmo di ricerca ricorsivo per le parole nella matrice, basato su un'esplorazione per profondità nelle 8 direzioni (orizzontale, verticale, diagonale)
