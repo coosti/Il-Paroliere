@@ -29,25 +29,25 @@ Per compilare l'intero progetto:
 Avviare il server specificando indirizzo IP, porta ed eventuali parametri. Per la chiusura premere CTRL-C.
 
 - #### avviare il server con IP 127.0.0.1 e porta 1025
-`make test1`
+  `make test1`
 
 - #### avviare il server con IP 127.0.0.1, porta 1025 e parametri opzionali per file matrice, file del dizionario e durata del gioco personalizzata 
-`make test2`
+  `make test2`
 
 - #### avviare il server con IP 127.0.0.1, porta 1027 e parametri per file matrice, file del dizionario, durata del gioco personalizzata e seed
-`make test3`
+  `make test3`
 
 - #### avviare il server con IP 127.0.0.1, porta 1026 e seed
-`make test5`
+  `make test5`
 
 ### Client
 Avviare il client specificando l'indirizzo IP e la porta a cui collegarsi. Sono ammessi fino a 32 client. Per la chiusura scrivere il comando *fine* oppure premere CTRL-C.
 
 - #### avviare il client su IP 127.0.0.1 e porta 1025
-`make test4`
+  `make test4`
 
 - #### avviare il client su IP 127.0.0.1 e porta 1026
-`make test6`
+  `make test6`
 
 
 
