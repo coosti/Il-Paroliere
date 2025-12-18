@@ -1,4 +1,4 @@
-# Il Paroliere 📝
+# IL PAROLIERE
 
 ## **Descrizione del progetto**
 Il Paroliere è un progetto sviluppato in linguaggio C come conclusione del corso di Laboratorio II della facoltà di Informatica dell'Università di Pisa.
